@@ -406,8 +406,11 @@
     for (const e of cat.eyes) {
       e.iris.visible = e.pupil.visible = e.shine.visible = !closed;
       e.arc.visible = closed;
-      e.group.scale.y = (1 - 0.9 * blink) * (1 - 0.42 * cross) * (1 + 0.1 * curious);
-      e.group.scale.x = 1 + 0.06 * curious;
+      // The whole eye, catchlights and closed-eye line included, is as big as its coat makes it.
+      const size = cat.build.eyeSize;
+      e.group.scale.y = size * (1 - 0.9 * blink) * (1 - 0.42 * cross) * (1 + 0.1 * curious);
+      e.group.scale.x = size * (1 + 0.06 * curious);
+      e.group.scale.z = size;
       let px = P.gazeX.x, py = P.gazeY.x;
       if (focus) {
         const es = screen(e.group.getWorldPosition(tmp2), V());

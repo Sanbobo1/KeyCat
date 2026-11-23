@@ -48,7 +48,7 @@ extension AppDelegate {
         // Off is the flat 2D sticker look; on adds soft volume shading.
         menu.addItem(toggle("立体效果（3D）", style == "3d") { $0.style = $0.style == "3d" ? "2d" : "3d" })
         menu.addItem(submenu("毛色", [("黑猫", "black"), ("奶牛猫", "tuxedo"), ("橘猫", "orange"), ("蓝灰猫", "grey"),
-                                      ("白猫", "white"), ("三花猫", "calico")], selected: coat) { $0.coat = $1 })
+                                      ("白猫", "white"), ("三花猫", "calico"), ("蓝白英短", "british")], selected: coat) { $0.coat = $1 })
         // Only coats whose stripes would show get the choice; black and white stay plain.
         if coat == "orange" || coat == "grey" {
             let striped = pattern == "tabby" || (pattern == "auto" && coat == "orange")

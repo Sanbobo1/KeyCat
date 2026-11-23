@@ -1,5 +1,6 @@
 // Fur: flat sticker colour plus the markings that make a coat read as a real cat — a pale muzzle
-// and bib, pink inner ears, tabby stripes, calico patches — and a soft top-left shade for volume.
+// and bib, pink inner ears, tabby stripes, calico patches, a blue-and-white's white mask — and a
+// soft top-left shade for volume.
 // Markings are placed in each part's rest shape, so they stay put when the spine bends.
 'use strict';
 (() => {
@@ -17,6 +18,7 @@
     uBib: { value: 0 },
     uCalico: { value: 0 },
     uTuxedo: { value: 0 },
+    uMask: { value: 0 },                // blue-and-white: white face centre, chest and forelegs
     uInnerAmt: { value: 0 },
     uShade: { value: 0 },
   };
@@ -44,7 +46,7 @@
 
   const fragment = `
     uniform vec3 uFur, uLight, uDark, uPatchA, uPatchB, uInner;
-    uniform float uStripes, uMuzzle, uBib, uCalico, uTuxedo, uInnerAmt, uShade;
+    uniform float uStripes, uMuzzle, uBib, uCalico, uTuxedo, uMask, uInnerAmt, uShade;
     varying vec3 vRest;
     varying vec3 vNormal;
     varying float vAlong;
@@ -80,6 +82,13 @@
           // Tuxedo blaze: the muzzle widens and runs up between the eyes.
           float blaze = max(m, blob(q, vec2(0.0, -0.1), vec2(0.12, 0.42)) * step(q.y, 0.35));
           light = max(light, blaze * uTuxedo);
+          // Blue-and-white: one white wedge down the middle of the face, from just short of the
+          // crown, widening past the inner half of the eyes to the chin with full cheeks at the
+          // mouth, so the coat's colour stays as a cap over the brow and round jowls at the sides
+          // of the face.
+          float v = 0.36 * (0.86 - q.y);
+          float wedge = (1.0 - smoothstep(v * 0.96, v, abs(q.x))) * step(0.0, v);
+          light = max(light, max(wedge, blob(q, vec2(0.0, -0.56), vec2(0.6, 0.36))) * uMask);
           // Tabby "M" on the forehead and streaks running back from the eyes.
           float mk = stroke(q, vec2(0.0, 0.42), vec2(0.0, 0.85), 0.07, 0.55);
           mk = max(mk, stroke(vec2(abs(q.x), q.y), vec2(0.15, 0.4), vec2(0.27, 0.84), 0.06, 0.45));
@@ -97,6 +106,10 @@
         float bibW = mix(0.55, 0.85, smoothstep(0.75, 1.2, p.y));
         float bib = 1.0 - smoothstep(bibW * 0.96, bibW, a);
         light = max(light, bib * max(uBib, uTuxedo));
+        // Blue-and-white: the chest and belly are white almost round to the flanks, narrowing
+        // towards the neck where the coat's colour wraps over the shoulders.
+        float white = mix(1.3, 0.9, smoothstep(0.3, 1.1, p.y));
+        light = max(light, (1.0 - smoothstep(white * 0.96, white, a)) * uMask);
         // Mackerel stripes wrap round the flanks and back, stopping short of the chest. They taper
         // to a point where they stop rather than fading, like brush strokes.
         float wave = p.y + 0.05 * sin(a * 3.0);
@@ -125,6 +138,8 @@
       #endif
       #ifdef ARM
         dark = max(dark, rings(vAlong, 3.0, 0.38) * step(0.4, vAlong) * uStripes);
+        // Blue-and-white forelegs are white.
+        light = max(light, uMask);
         // Calico forelegs are white, as on most real calicos.
         float pa = 0.0, pb = 0.0;
       #endif
@@ -152,6 +167,6 @@
   // Writes a coat: colours plus how strongly each marking shows (0 hides it).
   K.setFur = f => {
     for (const k of ['fur', 'light', 'dark', 'patchA', 'patchB', 'inner']) U['u' + k[0].toUpperCase() + k.slice(1)].value.set(f[k] || f.fur);
-    for (const k of ['stripes', 'muzzle', 'bib', 'calico', 'tuxedo', 'innerAmt', 'shade']) U['u' + k[0].toUpperCase() + k.slice(1)].value = f[k] || 0;
+    for (const k of ['stripes', 'muzzle', 'bib', 'calico', 'tuxedo', 'mask', 'innerAmt', 'shade']) U['u' + k[0].toUpperCase() + k.slice(1)].value = f[k] || 0;
   };
 })();

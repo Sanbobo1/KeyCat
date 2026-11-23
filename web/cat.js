@@ -194,18 +194,28 @@
   collar.visible = false;
   body.add(collar);
   const head = new THREE.Group();
-  head.position.set(0, 0.42, 0.04);
+  const HEAD_Y = 0.42;
+  head.position.set(0, HEAD_Y, 0.04);
   headPivot.add(head);
   // Big round chibi head with full cheeks: widest at the cheeks below the eyes, softer over the brow.
+  // `full` is how far the cheeks bulge. R is the head most coats have; a coat may ask for another
+  // (see `head` in COATS).
   const R = V(0.56, 0.47, 0.47);
-  const headGeo = new THREE.SphereGeometry(1, 64, 44);
-  const p = headGeo.attributes.position;
-  for (let i = 0; i < p.count; i++) {
-    const y = p.getY(i);
-    const cheek = 1 + 0.08 * Math.exp(-(((y + 0.38) / 0.4) ** 2)) - 0.08 * (y + 0.2);
-    p.setXYZ(i, p.getX(i) * cheek, y > 0 ? y * (1 - 0.06 * y) : y * 0.96, p.getZ(i));
-  }
-  headGeo.computeVertexNormals();
+  const CHEEK = 0.08;
+  // How much wider the cheeks are than at CHEEK, so the outline grows with them.
+  const cheekGain = full => (1 + 1.18 * full) / (1 + 1.18 * CHEEK);
+  const headShape = full => {
+    const geo = new THREE.SphereGeometry(1, 64, 44);
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i);
+      const cheek = 1 + full * Math.exp(-(((y + 0.38) / 0.4) ** 2)) - full * (y + 0.2);
+      p.setXYZ(i, p.getX(i) * cheek, y > 0 ? y * (1 - 0.06 * y) : y * 0.96, p.getZ(i));
+    }
+    geo.computeVertexNormals();
+    return geo;
+  };
+  let headGeo = headShape(CHEEK);
   const headMesh = new THREE.Mesh(headGeo, fur.head);
   headMesh.scale.copy(R);
   const headRim = new THREE.Mesh(headGeo, rimMat);
@@ -227,6 +237,30 @@
   const chinLine = new THREE.Mesh(headGeo, chinMat);
   chinLine.scale.copy(R);
   head.add(headRim, chinLine, headMesh);
+  // Fur, outline and chin line share one head shape, so they change together.
+  // Gives the head a coat's own shape: `cheek` (fuller cheeks), `head`, its half-width and
+  // half-height, and `earX`, which sets the ears further in (under 1) so their bases stay buried
+  // in a rounder head. The face was laid out for the default head, so everything on it moves
+  // with the change in x and y; depths stay, because a point keeps its place on the surface.
+  const form = { full: CHEEK, w: R.x, h: R.y, earX: 1 };
+  function setHead(c) {
+    const full = c.cheek || CHEEK, w = c.head ? c.head[0] : R.x, h = c.head ? c.head[1] : R.y, earX = c.earX || 1;
+    if (full === form.full && w === form.w && h === form.h && earX === form.earX) return;
+    Object.assign(form, { full, w, h, earX });
+    headGeo.dispose();
+    headGeo = headShape(full);
+    for (const m of [headMesh, headRim, chinLine]) m.geometry = headGeo;
+    headMesh.scale.set(w, h, R.z);
+    chinLine.scale.set(w, h, R.z);
+    headRim.scale.set(w * cheekGain(full) + 0.024, h + 0.024, R.z + 0.02);
+    const kx = w / R.x, ky = h / R.y;
+    face.scale.set(kx, ky, 1);
+    whiskerSet.scale.set(kx, ky, 1);
+    for (const e of eyes) e.group.position.set(e.seat.x * kx, e.seat.y * ky, e.seat.z);
+    for (const e of ears) e.group.position.set(e.seat.x * kx * earX, e.seat.y * ky, e.seat.z);
+    // The chin keeps its place over the collar, so a taller head sits higher, not deeper.
+    head.position.y = HEAD_Y + (h - R.y) * 0.96;
+  }
 
   // Ears: rounded triangles whose bases flare into the head, so the outline curves smoothly from
   // head to ear instead of meeting it at a notch. The outline is the same shape grown evenly.
@@ -250,7 +284,7 @@
     r.renderOrder = -1;
     g.add(r, e);
     head.add(g);
-    return { group: g, mesh: e, s };
+    return { group: g, mesh: e, s, seat: g.position.clone() };
   });
 
   // Eyes sit on the face surface and face along its normal.
@@ -289,10 +323,12 @@
     blush.renderOrder = 10;
     g.add(blush);
     head.add(g);
-    return { s, group: g, iris, pupil, shine, arc: arc.mesh };
+    return { s, group: g, iris, pupil, shine, arc: arc.mesh, seat: g.position.clone() };
   });
 
   // Whiskers: three thin strands per side, from the cheek out past the face.
+  const whiskerSet = new THREE.Group();
+  head.add(whiskerSet);
   const whiskers = [];
   for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
     const tube = new K.TaperTube(10, 4, whiskerMat, 12);
@@ -302,7 +338,7 @@
       (1 - t) ** 2 * a.x + 2 * (1 - t) * t * c.x + t * t * b.x,
       (1 - t) ** 2 * a.y + 2 * (1 - t) * t * c.y + t * t * b.y,
       (1 - t) ** 2 * a.z + 2 * (1 - t) * t * c.z + t * t * b.z), t => 0.006 * (1 - 0.5 * t));
-    head.add(tube.mesh);
+    whiskerSet.add(tube.mesh);
     whiskers.push(tube.mesh);
   }
 
@@ -445,8 +481,15 @@
       nose: '#f0a3a3', mouth: '#c99c94', inner: '#f6c3c3', innerAmt: 1, shade: 0.5 },
     calico: { fur: '#fbf8f1', ink: '#c2b8a8', lid: '#6e5a4e', rim: '#8b8172', arm: '#c9c1b2', paw: '#fbf8f1', toe: '#e0c9c2', whisker: '#b6ada0', eye: 'gold',
       patchA: '#e5964a', patchB: '#2b2522', calico: 1, nose: '#eea29a', mouth: '#b08a80', inner: '#f2bcb6', innerAmt: 1, shade: 0.5 },
+    // Blue-and-white British Shorthair, drawn from a photo of one. The breed's face is round:
+    // `head` makes it as tall on screen as it is wide (seen from above, a head looks shorter than
+    // it is). `mask` is the white face centre, chest and forelegs (fur.js); `cheek`, `ear` and
+    // `eyeSize` finish the look for this coat only (see setHead and setLook).
+    british: { fur: '#63666a', ink: '#3d4044', rim: '#f6f5f0', arm: '#a3a6aa', paw: '#fbf9f3', toe: '#d9d5cb', whisker: '#e2e1dc', eye: 'hazel',
+      light: '#fbf9f3', mask: 1, nose: '#e9a9b4', mouth: '#c99a9a', inner: '#e8c0c8', innerAmt: 1, shade: 0.5,
+      head: [0.56, 0.625], cheek: 0.05, ear: 1.0, earX: 0.9, eyeSize: 1.12 },
   };
-  const EYES = { gold: '#dcb64a', green: '#93c255', blue: '#6eb2e6', amber: '#e59a32', copper: '#d9792f' };
+  const EYES = { gold: '#dcb64a', green: '#93c255', blue: '#6eb2e6', amber: '#e59a32', copper: '#d9792f', hazel: '#c9b452' };
   // Catchlight dots per style: [x (outer side +), y, radius].
   const SHINES = {
     none: [],
@@ -457,9 +500,14 @@
   // eye: 'auto' follows the coat; 'odd' is one blue and one gold eye.
   // style: '2d' is flat colour like a sticker; '3d' adds soft volume shading.
   const look = { style: '2d', coat: 'black', pattern: 'auto', eye: 'auto', shine: 'classic', blush: false, whiskers: true, collar: 'none' };
+  // Set by the coat; the eyes are scaled by it every frame in behavior.js.
+  const build = { eyeSize: 1 };
   function setLook(o) {
     Object.assign(look, o);
     const c = COATS[look.coat] || COATS.black;
+    setHead(c);
+    for (const e of ears) e.group.scale.set(c.ear || 1, (c.ear || 1) * 1.12, c.ear || 1);
+    build.eyeSize = c.eyeSize || 1;
     const striped = c.tabby && (look.pattern === 'tabby' || (look.pattern === 'auto' && look.coat === 'orange'));
     const solid = look.style === '3d';
     K.setFur({ ...c, dark: c.tabby || c.fur, stripes: striped ? 1 : 0, shade: solid ? c.shade : 0 });
@@ -505,7 +553,7 @@
     tailTip: out => tailCurve.getPoint(1, out),
     petMeshes: [headMesh, ...ears.map(e => e.mesh)],
     dragMeshes: [bodyMesh, tail.body, ...arms.flatMap(a => [a.limb.body, a.paw]), ...hind],
-    updateArm, updateTail, setLook, look,
+    updateArm, updateTail, setLook, look, build,
   };
   setLook({});
 })();
