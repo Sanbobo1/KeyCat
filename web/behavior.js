@@ -229,8 +229,8 @@
         // A fan of them over the head, rising and drifting outwards.
         for (let i = 0; i < 6; i++) {
           const a = (-150 + i * 24) * Math.PI / 180;
-          fx('heart', head.clone().add(V(Math.cos(a) * 0.62, 0.5 + Math.sin(a) * 0.3, 0.3)), 0.2 + 0.04 * Math.random(), 1.2,
-            V(Math.cos(a) * 0.2, 0.5 + 0.2 * Math.random(), 0));
+          fx('heart', head.clone().add(V(Math.cos(a) * 0.78, 0.55 + Math.sin(a) * 0.3, 0.3)), 0.4 + 0.08 * Math.random(), 1.2,
+            V(Math.cos(a) * 0.25, 0.5 + 0.2 * Math.random(), 0));
         }
       } else if (kind === 'startled') {
         fx('star', head.clone().add(V(0, 0.72, 0.1)), 0.34, 0.5, V(0, 0.3, 0), 42);
