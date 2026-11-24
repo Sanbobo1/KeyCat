@@ -538,8 +538,8 @@
     british: { fur: '#63666a', ink: '#45454a', rim: '#45454a', arm: '#45454a', pawRim: '#45454a', paw: '#fdfdfa', toe: '#9a9a9a',
       whisker: '#d8d8d4', eye: 'gold', light: '#fdfdfa', mask: 1, earTip: 1, innerWide: 1, inner: '#eea59e', innerAmt: 1,
       nose: '#f0a49c', mouth: false, noseSize: [0.7, 0.6], shade: 0.5,
-      head: [0.595, 0.665], cheek: 0.05, top: 2.5, ear: [1.15, 1.3], earX: 0.8, earY: 1.22, eyeSize: 1.12, eyeRound: 1.45, eyeY: -0.3, pupil: [1, 1.37],
-      height: 1.12, zoom: 0.87, zoomY: 5, zoomX: 14 },
+      head: [0.595, 0.665], cheek: 0.05, top: 2.5, ear: [1.15, 1.3], earX: 0.8, earY: 1.22, eyeSize: 1.12, eyeRound: 1.05, eyeY: -0.3, pupil: [1, 1.37],
+      height: 1.12, zoom: 0.87, zoomY: 5 },
   };
   // COCO冬瓜: the same cat with a squat body, about a fifth shorter than `british` on screen.
   COATS.coco = { ...COATS.british, height: 0.86 };
