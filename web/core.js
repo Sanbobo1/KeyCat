@@ -284,8 +284,11 @@ const K = {};
         const p = (x, y) => [64 + (x - 64) * k, 64 + (y - 64) * k];
         g.beginPath();
         g.moveTo(...p(64, 106));
-        g.bezierCurveTo(...p(10, 66), ...p(16, 20), ...p(48, 22), ...p(58, 22), ...p(64, 30), ...p(64, 38));
-        g.bezierCurveTo(...p(64, 30), ...p(70, 22), ...p(80, 22), ...p(112, 20), ...p(118, 66), ...p(64, 106));
+        // Up the left side and over its lobe, down to the notch, then mirrored on the right.
+        g.bezierCurveTo(...p(10, 66), ...p(16, 20), ...p(48, 22));
+        g.bezierCurveTo(...p(58, 22), ...p(64, 30), ...p(64, 38));
+        g.bezierCurveTo(...p(64, 30), ...p(70, 22), ...p(80, 22));
+        g.bezierCurveTo(...p(112, 20), ...p(118, 66), ...p(64, 106));
         g.closePath();
       };
       g.fillStyle = '#fbfaf3'; g.strokeStyle = '#fbfaf3'; g.lineWidth = 16; g.lineJoin = 'round';

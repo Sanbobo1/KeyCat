@@ -45,6 +45,8 @@
     chasing: false, chase: V(), press: 0, playPaw: 'R', playSide: 0, playSideAt: -100,
     pounceAt: -100, pounceUntil: -100, pounceDone: false,
     curiousWas: false, chatterAt: -100,
+    // Hearts are let go from the top of the head one by one until `heartUntil`.
+    heartUntil: -100, nextHeart: 0,
   };
   const effects = [];
   // How long each reaction lasts, and each idle fidget, in seconds.
@@ -226,12 +228,9 @@
       startReact(kind, t, { meow: '喵', sigh: '唉…' }[kind]);
       const head = cat.head.getWorldPosition(V());
       if (kind === 'hearts') {
-        // A fan of them over the head, rising and drifting outwards.
-        for (let i = 0; i < 6; i++) {
-          const a = (-150 + i * 24) * Math.PI / 180;
-          fx('heart', head.clone().add(V(Math.cos(a) * 0.78, 0.55 + Math.sin(a) * 0.3, 0.3)), 0.4 + 0.08 * Math.random(), 1.2,
-            V(Math.cos(a) * 0.25, 0.5 + 0.2 * Math.random(), 0));
-        }
+        // Not at once: they leave the top of the head one after another (see update).
+        S.heartUntil = t + 0.75;
+        S.nextHeart = t;
       } else if (kind === 'startled') {
         fx('star', head.clone().add(V(0, 0.72, 0.1)), 0.34, 0.5, V(0, 0.3, 0), 42);
         P.squash.kick(0.6);
@@ -546,6 +545,16 @@
     // A pointer that darts makes a cat chatter at it; not while it is cross, nor too often.
     if (curiousNow && !S.curiousWas && !S.cross && S.sleep < 0.3 && t - S.chatterAt > 6) { S.chatterAt = t; startReact('chatter', t, '咔咔'); }
     S.curiousWas = curiousNow;
+    // Hearts leave the top of the head one at a time and float up like bubbles, each a little to
+    // one side and rising at its own pace.
+    if (t < S.heartUntil && t >= S.nextHeart) {
+      S.nextHeart = t + 0.14;
+      const from = cat.head.getWorldPosition(tmp2);
+      from.y += 0.5;
+      from.x += (Math.random() - 0.5) * 0.7;
+      fx('heart', from, 0.34 + 0.1 * Math.random(), 1.6, V((Math.random() - 0.5) * 0.2, 0.5 + 0.45 * Math.random(), 0));
+      S.busyUntil = Math.max(S.busyUntil, t + 2.2);
+    }
     const act = S.act, actU = act ? (t - act.t0) / act.dur : 0;
     // Smooth in, hold, smooth out over the fidget's duration.
     const actEnv = act ? smooth(0, 0.25, actU) * (1 - smooth(0.7, 1, actU)) : 0;
@@ -744,6 +753,8 @@
       const fx = effects[i], age = t - fx.t0, u = age / fx.life;
       if (u >= 1) { scene.remove(fx.sprite); effects.splice(i, 1); continue; }
       fx.sprite.position.copy(fx.from).addScaledVector(fx.vel, age);
+      // A rising heart wobbles as a bubble does.
+      if (fx.kind === 'heart') fx.sprite.position.x += Math.sin(age * 5 + fx.from.x * 9) * 0.05;
       // Bursts and stars pop out at once, hearts swell, dust grows as it thins out.
       const pop = fx.kind === 'bang' || fx.kind === 'star' ? 0.5 + 0.7 * smooth(0, 0.3, u) : fx.kind === 'heart' ? 0.6 + 0.5 * smooth(0, 0.25, u) : 0.6 + 0.9 * u;
       const s = fx.size * pop;
@@ -895,7 +906,7 @@
       S.react = null; S.dragging = false; S.drag = 0; S.active = 0; S.restDue = false; S.sleptEarly = false;
       S.ctrl = false; S.typed = []; S.backspaces = []; S.undos = []; S.caps = []; S.eggAt = {};
       S.chasing = false; S.playSide = 0; S.pounceAt = -100; S.pounceUntil = -100; S.pounceDone = false;
-      S.curiousWas = false; S.chatterAt = -100;
+      S.curiousWas = false; S.chatterAt = -100; S.heartUntil = -100;
       P.cross.set(0); P.desk.set(0); P.curious.set(0);
       for (const fx of [...effects, ...zs, ...popups]) scene.remove(fx.sprite);
       effects.length = 0;
