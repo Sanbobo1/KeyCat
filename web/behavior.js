@@ -38,7 +38,7 @@
     sleptEarly: false,
     // Secret words and habits: whether Control is held, the last letters typed, and recent
     // presses kept for a few seconds; `eggAt` is when each trick last fired.
-    ctrl: false, typed: [], backspaces: [], undos: [], caps: [], eggAt: {},
+    shift: false, ctrl: false, typed: [], backspaces: [], undos: [], caps: [], questions: [], eggAt: {},
     // The greeting is shown once each time the app starts; the hour is looked up once a minute.
     greetAt: 0, hour: 0, hourAt: -100, hourSet: null,
     // Play mode: `chasing` while a paw can reach for the pointer, `chase` where, and the pounce.
@@ -50,7 +50,7 @@
   };
   const effects = [];
   // How long each reaction lasts, and each idle fidget, in seconds.
-  const REACT_DUR = { hearts: 1.2, meow: 1.4, sigh: 1.8, facepalm: 1.8, startled: 0.8, stretch: 1.8, chatter: 0.7 };
+  const REACT_DUR = { hearts: 1.2, meow: 1.4, sigh: 1.8, facepalm: 1.8, startled: 0.8, stretch: 1.8, chatter: 0.7, puzzled: 3 };
   const ACT_DUR = { tilt: 1.8, ear: 0.4, slowBlink: 1.4, look: 2.2, tail: 1, groom: 2.4, stretch: 1.8 };
   // Pose springs. Gaze is quickest, then the head, then the body, like a real cat whose eyes
   // lock on first and whose body catches up last; damping under 1 gives a touch of follow-through.
@@ -114,6 +114,8 @@
     const t = now();
     // Control is not a key on the keyboard here, so it is noted before the key is looked up.
     if (code === 'ControlLeft' || code === 'ControlRight') S.ctrl = down;
+    // With Shift down, the slash key types a question mark.
+    if (code === 'ShiftLeft' || code === 'ShiftRight') S.shift = down;
     const k = keyboard.resolve(code);
     if (!k) return;
     if (!down) {
@@ -196,15 +198,15 @@
   }
 
   // A word in a little white card, held a moment beside the head, then drifting up and fading.
-  function floatText(text, at, hold = 1.2, size = 0.34) {
-    const { tex, aspect } = K.labelTexture(text);
+  function floatText(text, at, hold = 1.2, size = 0.34, style = 'cap', life = 2.6) {
+    const { tex, aspect } = K.labelTexture(text, style);
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
     sprite.renderOrder = 40;
     sprite.position.copy(at);
     sprite.userData.base = at.clone();
     sprite.userData.text = text;
     scene.add(sprite);
-    zs.push({ sprite, t0: now(), hold, size, aspect, life: 2.6 });
+    zs.push({ sprite, t0: now(), hold, size, aspect, life });
   }
 
   // Starts a reaction; `t0` may lie a little ahead. A trivial one never interrupts another.
@@ -218,11 +220,12 @@
   }
 
   // Secret words and habits on the keyboard. Only the last few letters are kept, and for a few
-  // seconds; each trick then has a cool-down, so a day's typing does not become a variety show.
+  // seconds; each trick then has a cool-down (a setting in the 调节 window), so a day's typing
+  // does not become a variety show.
   const WORDS = { coco: 'hearts', miao: 'meow', meow: 'meow' };
   const recent = (list, t, span, at = x => x) => list.filter(x => t - at(x) <= span);
   function eggs(code, t) {
-    const quiet = kind => t - (S.eggAt[kind] ?? -100) > 20 && !S.cross && !S.asleep && S.sleep < 0.3;
+    const quiet = kind => t - (S.eggAt[kind] ?? -100) > TUNING.eggCool && !S.cross && !S.asleep && S.sleep < 0.3;
     const fire = kind => {
       S.eggAt[kind] = t;
       startReact(kind, t, { meow: '喵', sigh: '唉…' }[kind]);
@@ -234,8 +237,13 @@
       } else if (kind === 'startled') {
         fx('star', head.clone().add(V(0, 0.72, 0.1)), 0.34, 0.5, V(0, 0.3, 0), 42);
         P.squash.kick(0.6);
+      } else if (kind === 'puzzled') {
+        // A big pink question mark hangs over the head for exactly as long as the cat is puzzled.
+        floatText('?', head.clone().add(V(0.05, 0.88, 0)), 3, 0.95, 'pink', 3.6);
       }
     };
+    // A run of question marks is broken by any other key.
+    if ((code !== 'Slash' || !S.shift) && code !== 'ShiftLeft' && code !== 'ShiftRight') S.questions = [];
     const letter = /^Key([A-Z])$/.exec(code);
     // A word is broken by any other key, by Control, or by a pause between its letters.
     if (!letter || S.ctrl) S.typed = [];
@@ -261,6 +269,11 @@
       S.caps = recent(S.caps, t, 2);
       S.caps.push(t);
       if (S.caps.length >= 4 && quiet('startled')) fire('startled');
+    } else if (code === 'Slash' && S.shift) {
+      // Three question marks in a row: what on earth is going on?
+      S.questions = recent(S.questions, t, 3);
+      S.questions.push(t);
+      if (S.questions.length >= 3 && quiet('puzzled')) { S.questions = []; fire('puzzled'); }
     }
   }
 
@@ -543,7 +556,7 @@
       if (S.active >= TUNING.restAfter * 60) S.restDue = true;
     }
     // A pointer that darts makes a cat chatter at it; not while it is cross, nor too often.
-    if (curiousNow && !S.curiousWas && !S.cross && S.sleep < 0.3 && t - S.chatterAt > 6) { S.chatterAt = t; startReact('chatter', t, '咔咔'); }
+    if (curiousNow && !S.curiousWas && !S.cross && S.sleep < 0.3 && t - S.chatterAt > TUNING.chatterCool) { S.chatterAt = t; startReact('chatter', t, '咔咔'); }
     S.curiousWas = curiousNow;
     // Hearts leave the top of the head one at a time and float up like bubbles, each a little to
     // one side and rising at its own pace.
@@ -563,6 +576,7 @@
     const r = S.react, rU = r ? (t - r.t0) / r.dur : -1;
     const rIs = kind => r && r.kind === kind ? smooth(0, 0.18, rU) * (1 - smooth(0.75, 1, rU)) : 0;
     const stretch = Math.min(1, rIs('stretch') + (act && act.kind === 'stretch' ? actEnv : 0));
+    const puzzled = rIs('puzzled');
 
     // Body: the haunches stay planted; the spine bends towards whatever the busy paw reaches for.
     const striking = Object.values(paws).find(p => p.key && (p.down || t - p.t0 < 0.3));
@@ -593,6 +607,8 @@
     hunch -= 0.08 * stretch;
     squash -= 0.16 * stretch;
     squash += 0.07 * rIs('sigh');
+    // Puzzled, the cat leans in for a closer look.
+    hunch += 0.3 * puzzled;
     P.shift.step(shift, dt);
     P.hunch.step(hunch, dt);
     P.squash.step(squash, dt);
@@ -648,6 +664,8 @@
     if (S.cursor && !striking && !mousing(t) && t - S.cursorSeen > 1.2 && Math.abs(lx) < 0.5 && Math.abs(ly) < 0.6) roll += 0.12 * Math.sign(lx || 1);
     // The classic curious head cock, towards the side the pointer is on.
     roll += 0.2 * curious * (lx >= 0 ? -1 : 1);
+    // Puzzled, the head cocks to one side.
+    roll += 0.38 * puzzled * (r && r.kind === 'puzzled' ? r.side : 1);
     P.roll.step(roll - petSide * 0.12 * S.rub + 0.08 * S.sleep, dt);
     // Fast shivers go straight into the head, which the yaw spring would smooth away: the
     // chatter at a darting pointer, and the head shake at too much undoing.
@@ -656,13 +674,15 @@
     // The head stays level however the body leans, and cocks about its own centre.
     cat.head.rotation.z = P.roll.x - cat.body.rotation.z;
     cat.headPivot.position.x += rubWave * 0.4;
+    // Puzzled, the neck cranes forward.
+    cat.headPivot.position.z += 0.28 * puzzled;
     cat.placeCollar();
 
     // Ears perk up when excited, stand up and swivel forward when curious, flatten back when
     // rubbed, go out sideways ("airplane ears") when cross; a fidget flicks one of them. A meow
     // puts them up, a stretch or a fright or being carried lays them back.
     P.ears.step(0.1 * S.excite * (1 - cross) + 0.12 * curious - 0.22 * S.rub - 0.55 * cross
-      + 0.45 * rIs('meow') - 0.25 * stretch - 0.6 * rIs('startled') - 0.2 * S.drag, dt);
+      + 0.45 * rIs('meow') - 0.25 * stretch - 0.6 * rIs('startled') - 0.2 * S.drag + 0.2 * puzzled, dt);
     for (const e of cat.ears) {
       const flick = act && act.kind === 'ear' && e.s === act.side ? Math.sin(actU * Math.PI * 3) * 0.3 * (1 - actU) : 0;
       e.group.rotation.z = -e.s * (e.tilt - P.ears.x) + flick;
@@ -678,12 +698,14 @@
     // The yawn in a stretch shuts the eyes for its length.
     if (rIs('stretch')) blink = Math.max(blink, Math.sin(clamp(rU, 0, 1) * Math.PI));
     if (act && act.kind === 'stretch') blink = Math.max(blink, Math.sin(clamp(actU, 0, 1) * Math.PI));
+    // Puzzled, it stares: no blinking.
+    if (puzzled > 0.3) blink = 0;
     const closed = (pet && !S.cross) || S.sleep > 0.5;
     // Excited and curious cats' pupils go wide and round (curious most of all, up to the size set
-    // in the 调节 window); cross ones narrow to slits under heavy lids, and carried ones go wide.
+    // in the 调节 window); cross ones narrow to slits under heavy lids; carried and puzzled ones go wide.
     // The pupil never grows past the iris, so it stays a black disc inside a coloured ring.
-    const dilate = Math.min(2.6, Math.max(mix(1 + 0.25 * S.excite, TUNING.pupilSize / 100, curious) * (1 - 0.5 * cross), 2.2 * S.drag));
-    const wide = 1 + 0.15 * Math.max(rIs('startled'), S.drag);
+    const dilate = Math.min(2.6, Math.max(mix(1 + 0.25 * S.excite, TUNING.pupilSize / 100, curious) * (1 - 0.5 * cross), 2.2 * S.drag, 1.8 * puzzled));
+    const wide = 1 + 0.15 * Math.max(rIs('startled'), S.drag, puzzled);
     for (const e of cat.eyes) {
       e.iris.visible = e.pupil.visible = e.shine.visible = !closed;
       e.arc.visible = closed;
@@ -904,7 +926,7 @@
       S.annoy = 0; S.cross = false; S.petStart = -1; S.thumpLift = 0;
       S.moves = []; S.mouseSpeed = 0; S.curiousUntil = -100;
       S.react = null; S.dragging = false; S.drag = 0; S.active = 0; S.restDue = false; S.sleptEarly = false;
-      S.ctrl = false; S.typed = []; S.backspaces = []; S.undos = []; S.caps = []; S.eggAt = {};
+      S.shift = false; S.ctrl = false; S.typed = []; S.backspaces = []; S.undos = []; S.caps = []; S.questions = []; S.eggAt = {};
       S.chasing = false; S.playSide = 0; S.pounceAt = -100; S.pounceUntil = -100; S.pounceDone = false;
       S.curiousWas = false; S.chatterAt = -100; S.heartUntil = -100;
       P.cross.set(0); P.desk.set(0); P.curious.set(0);

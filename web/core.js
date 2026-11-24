@@ -205,7 +205,8 @@ const K = {};
     };
   };
 
-  // Text on a rounded white keycap, used for the floating key labels and the sleep "Z".
+  // Text on a rounded white keycap, used for the floating key labels, the cat's bubbles and the
+  // sleep "Z".
   const labelCache = new Map();
   K.labelTexture = (text, style = 'cap') => {
     const key = style + ':' + text;
@@ -227,10 +228,11 @@ const K = {};
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(text, c.width / 2, y + h / 2 + 3);
     } else {
+      // A lone outlined glyph: white ('z'), or pink ('pink', the big question mark).
       g.font = 'bold 84px "Chalkboard SE", "Comic Sans MS", -apple-system, sans-serif';
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.lineWidth = 12; g.strokeStyle = '#1b1b1b'; g.strokeText(text, 64, 66);
-      g.fillStyle = '#fbfaf3'; g.fillText(text, 64, 66);
+      g.fillStyle = style === 'pink' ? '#f58aa4' : '#fbfaf3'; g.fillText(text, 64, 66);
     }
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 4;
