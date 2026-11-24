@@ -490,19 +490,20 @@
       nose: '#f0a3a3', mouth: '#c99c94', inner: '#f6c3c3', innerAmt: 1, shade: 0.5 },
     calico: { fur: '#fbf8f1', ink: '#c2b8a8', lid: '#6e5a4e', rim: '#8b8172', arm: '#c9c1b2', paw: '#fbf8f1', toe: '#e0c9c2', whisker: '#b6ada0', eye: 'gold',
       patchA: '#e5964a', patchB: '#2b2522', calico: 1, nose: '#eea29a', mouth: '#b08a80', inner: '#f2bcb6', innerAmt: 1, shade: 0.5 },
-    // Grey-and-white cat drawn from an illustration of one, with its proportions (see setHead and
-    // setLook). `head`, `cheek` and `top` give it a head that is broad with a flat crown, so its
-    // ears can stand wide upon it; `ear` (a number, or [width, height]) makes its ears tall and
-    // `earX` and `earY` set them high on the head, with `innerWide` filling them with pink.
-    // `eyeY` sets the eyes low in the face and `pupil` scales the pupil; `noseSize` and `mouth`
-    // shrink the nose to a dab and leave out the mouth. `height` draws the body taller, and
-    // `zoom` (with `zoomY` and `zoomX`) fits the whole cat on screen. `mask` is the white face
-    // centre, chest and forelegs, and `earTip` the white tuft on the left ear (fur.js).
+    // Grey-and-white cat drawn from an illustration of one (see setHead and setLook). `head`,
+    // `cheek` and `top` give it a head that is broad with a flat crown, so its ears can stand
+    // wide upon it; `ear` (a number, or [width, height]) makes its ears tall and `earX` and
+    // `earY` set them high on the head, with `innerWide` filling them with pink. `eyeY` sets the
+    // eyes low in the face and `pupil` scales the pupil; `noseSize` and `mouth` shrink the nose
+    // to a dab and leave out the mouth. `height` scales the body's height (a squat body here, as
+    // the illustration's tall one reads as stretched seen from above), and `zoom` (with `zoomY`
+    // and `zoomX`) fits the whole cat on screen. `mask` is the white face centre, chest and
+    // forelegs, and `earTip` the white tuft on the left ear (fur.js).
     british: { fur: '#63666a', ink: '#45454a', rim: '#45454a', arm: '#45454a', pawRim: '#45454a', paw: '#fdfdfa', toe: '#9a9a9a',
       whisker: '#d8d8d4', eye: 'gold', light: '#fdfdfa', mask: 1, earTip: 1, innerWide: 1, inner: '#eea59e', innerAmt: 1,
       nose: '#f0a49c', mouth: false, noseSize: [0.7, 0.6], shade: 0.5,
       head: [0.595, 0.665], cheek: 0.05, top: 2.5, ear: [1.15, 1.3], earX: 0.8, earY: 1.22, eyeSize: 1.12, eyeRound: 1.45, eyeY: -0.3, pupil: [1, 1.37],
-      height: 1.42, zoom: 0.87, zoomY: 15, zoomX: 14 },
+      height: 0.86, zoom: 0.87, zoomY: 5, zoomX: 14 },
   };
   const EYES = { gold: '#dcb64a', green: '#93c255', blue: '#6eb2e6', amber: '#e59a32', copper: '#d9792f', hazel: '#c9b452' };
   // Catchlight dots per style: [x (outer side +), y, radius].
@@ -536,8 +537,8 @@
     // The iris is a shade wider than tall, and the face tilts back from the camera, so on screen
     // it is an ellipse lying on its side. `eyeRound` stretches it upwards to read as a circle.
     for (const e of eyes) e.iris.scale.set(0.155, 0.14 * (c.eyeRound || 1), 1);
-    // `body` narrows the body and `height` draws it taller, and with it the neck the head sits
-    // on. The paws and shoulders follow, and the collar round it. The bell keeps its shape.
+    // `body` narrows the body and `height` scales how tall it is, and with it the neck the head
+    // sits on. The paws and shoulders follow, and the collar round it. The bell keeps its shape.
     bodyWidth = c.body || 1;
     bodyH = c.height || 1;
     bodyMesh.scale.set(bodyWidth, bodyH, 0.82);
