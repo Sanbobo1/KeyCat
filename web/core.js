@@ -58,8 +58,9 @@ const K = {};
   const FRAME = { w: 539, h: 458 };
   // `?crop=x,y,w,h` (frame px) magnifies any part of the frame, for close-up checks.
   const crop = params.get('crop') && params.get('crop').split(',').map(Number);
-  const CROP = crop ? { x: crop[0], y: crop[1], w: crop[2], h: crop[3] }
+  const BASE = crop ? { x: crop[0], y: crop[1], w: crop[2], h: crop[3] }
     : params.has('full') ? { x: 0, y: 0, w: FRAME.w, h: FRAME.h } : { x: 95, y: 34, w: 360, h: 368 };
+  let CROP = BASE;
   const [FOV, ELEV, DIST] = (params.get('cam') || '16,28,15.65').split(',').map(Number);
   const ANCHOR = V(0.28, 0.1, 1.0), AIM = { x: 294, y: 355 };
   const scene = new THREE.Scene();
@@ -67,12 +68,20 @@ const K = {};
   const e = ELEV * Math.PI / 180;
   camera.position.set(ANCHOR.x, ANCHOR.y + DIST * Math.sin(e), ANCHOR.z + DIST * Math.cos(e));
   camera.lookAt(ANCHOR);
-  Object.assign(K, { renderer, scene, camera, FRAME, CROP });
+  Object.assign(K, { renderer, scene, camera, FRAME });
 
   K.resize = () => {
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
     camera.setViewOffset(FRAME.w, FRAME.h, CROP.x + FRAME.w / 2 - AIM.x, CROP.y + FRAME.h / 2 - AIM.y, CROP.w, CROP.h);
+  };
+  // Zooms the whole scene about the middle of the view: under 1 shows more of the frame, so
+  // everything on screen is smaller. `dx` and `dy` then move it all left and down the window by
+  // that many pixels.
+  K.setZoom = (zoom, dy = 0, dx = 0) => {
+    const grown = (1 - 1 / zoom) / 2;
+    CROP = { x: BASE.x + BASE.w * grown + dx * zoom, y: BASE.y + BASE.h * grown - dy * zoom, w: BASE.w / zoom, h: BASE.h / zoom };
+    K.resize();
   };
   window.addEventListener('resize', K.resize);
   K.resize();
