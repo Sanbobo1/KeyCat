@@ -186,14 +186,15 @@
     P.squash.kick(0.25);
   }
 
-  // Where a word for the cat appears: beside its head, like the sleep "Z".
+  // Where a word for the cat appears: beside its head at ear level, far enough out that the
+  // card clears the ear and the top of the window as it rises.
   function headSide(out) {
     cat.head.getWorldPosition(out);
-    return out.add(V(0.5, 0.5, 0));
+    return out.add(V(0.78, 0.42, 0));
   }
 
   // A word in a little white card, held a moment beside the head, then drifting up and fading.
-  function floatText(text, at, hold = 1.2, size = 0.17) {
+  function floatText(text, at, hold = 1.2, size = 0.34) {
     const { tex, aspect } = K.labelTexture(text);
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
     sprite.renderOrder = 40;
@@ -768,7 +769,7 @@
       const { tex } = K.labelTexture('Z', 'z');
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
       sprite.renderOrder = 40;
-      sprite.position.copy(headSide(V())).sub(V(0.05, -0.05, 0));
+      cat.head.getWorldPosition(sprite.position).add(V(0.45, 0.55, 0));
       sprite.userData.base = sprite.position.clone();
       scene.add(sprite);
       zs.push({ sprite, t0: t, hold: 0, size: 0.16, aspect: 1, life: 2.6 });
