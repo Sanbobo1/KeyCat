@@ -74,6 +74,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScri
         get { defaults.bool(forKey: "privacy") }
         set { defaults.set(newValue, forKey: "privacy") }
     }
+    /// The cat's paws chase the pointer and pounce when it stops.
+    var play: Bool {
+        get { defaults.bool(forKey: "play") }
+        set { defaults.set(newValue, forKey: "play") }
+    }
     /// Clicks always pass through to the window underneath; the menu is then reached from the menu bar.
     var clickThrough: Bool {
         get { defaults.bool(forKey: "clickThrough") }
@@ -192,7 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScri
     func pushOptions() {
         let options: [String: Any] = ["style": style, "coat": coat, "pattern": pattern, "eye": eyeColor, "shine": eyeShine, "blush": blush,
                                       "whiskers": whiskers, "collar": collar,
-                                      "privacy": privacy, "sleepAfter": sleepAfter > 0 ? sleepAfter : 1e9,
+                                      "privacy": privacy, "play": play, "sleepAfter": sleepAfter > 0 ? sleepAfter : 1e9,
                                       "tune": tune]
         guard let data = try? JSONSerialization.data(withJSONObject: options),
               let json = String(data: data, encoding: .utf8) else { return }

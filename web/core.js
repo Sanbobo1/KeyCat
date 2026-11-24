@@ -239,7 +239,8 @@ const K = {};
     return entry;
   };
 
-  // Small sticker effects: 'anger' (manga cross-vein mark), 'bang' (impact burst), 'dust' (puff).
+  // Small sticker effects: 'anger' (manga cross-vein mark), 'bang' (impact burst), 'star', 'heart',
+  // 'dust' (puff).
   K.fxTexture = kind => {
     const key = 'fx:' + kind;
     if (labelCache.has(key)) return labelCache.get(key).tex;
@@ -267,6 +268,29 @@ const K = {};
       g.closePath();
       g.fillStyle = '#fbfaf3'; g.fill();
       g.strokeStyle = '#1d1d1b'; g.lineWidth = 7; g.stroke();
+    } else if (kind === 'star') {
+      // A five-point star: a pat lands, or a fright.
+      g.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 24 : 58;
+        g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
+      }
+      g.closePath();
+      g.fillStyle = '#ffd95e'; g.fill();
+      g.strokeStyle = '#1d1d1b'; g.lineWidth = 7; g.stroke();
+    } else if (kind === 'heart') {
+      // A plump pink heart with a white edge: grown about the centre by `k`.
+      const heart = k => {
+        const p = (x, y) => [64 + (x - 64) * k, 64 + (y - 64) * k];
+        g.beginPath();
+        g.moveTo(...p(64, 106));
+        g.bezierCurveTo(...p(10, 66), ...p(16, 20), ...p(48, 22), ...p(58, 22), ...p(64, 30), ...p(64, 38));
+        g.bezierCurveTo(...p(64, 30), ...p(70, 22), ...p(80, 22), ...p(112, 20), ...p(118, 66), ...p(64, 106));
+        g.closePath();
+      };
+      g.fillStyle = '#fbfaf3'; g.strokeStyle = '#fbfaf3'; g.lineWidth = 16; g.lineJoin = 'round';
+      heart(0.92); g.fill(); g.stroke();
+      g.fillStyle = '#ef7f92'; heart(0.84); g.fill();
     } else {
       g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2);
       g.fillStyle = '#f4f1e6'; g.fill();

@@ -31,6 +31,8 @@ final class WebCatView: WKWebView {
         } else {
             dragStart = (NSEvent.mouseLocation, window.frame.origin)
             app.dragging = true
+            // The cat is picked up: it hangs from its body until it is set down.
+            app.js("cat.drag && cat.drag(true)")
             NSCursor.closedHand.set()
         }
     }
@@ -49,6 +51,7 @@ final class WebCatView: WKWebView {
         if dragStart != nil {
             dragStart = nil
             app?.dragging = false
+            app?.js("cat.drag && cat.drag(false)")
             app?.saveOrigin()
         }
         app?.refreshCursor()

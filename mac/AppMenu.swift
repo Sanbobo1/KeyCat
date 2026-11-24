@@ -75,6 +75,7 @@ extension AppDelegate {
                              selected: sleepAfter) { $0.sleepAfter = $1 })
         menu.addItem(toggle("隐私模式（不显示键名）", privacy) { $0.privacy.toggle() })
         menu.addItem(toggle("鼠标穿透（点击直接落到下层窗口）", clickThrough) { $0.clickThrough.toggle() })
+        menu.addItem(toggle("逗猫模式（用光标逗它扑）", play) { $0.play.toggle() })
         menu.addItem(item("调节反应…") { $0.settings.show() })
         menu.addItem(.separator())
         menu.addItem(item("回到右下角") { $0.resetPosition() })

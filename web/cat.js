@@ -647,6 +647,8 @@
     tailTip: out => tailCurve.getPoint(1, out),
     petMeshes: [headMesh, ...ears.map(e => e.mesh)],
     dragMeshes: [bodyMesh, tail.body, ...arms.flatMap(a => [a.limb.body, a.paw]), ...hind],
+    // The same without the arms, whose paws may be out chasing the pointer (see play mode).
+    bodyDragMeshes: [bodyMesh, tail.body, ...hind],
     updateArm, updateTail, setLook, look, build,
   };
   setLook({});

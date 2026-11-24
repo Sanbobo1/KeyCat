@@ -104,6 +104,7 @@ struct Settings {
     whiskers: bool,
     privacy: bool,
     click_through: bool,
+    play: bool,
     run_as_admin: bool,
     sleep_after: f64,
     tune: Value,
@@ -131,6 +132,7 @@ impl Host {
             whiskers: self.store.get("whiskers") != Some(&Value::Bool(false)),
             privacy: self.store.get("privacy") == Some(&Value::Bool(true)),
             click_through: self.store.get("clickThrough") == Some(&Value::Bool(true)),
+            play: self.store.get("play") == Some(&Value::Bool(true)),
             run_as_admin: self.store.get("runAsAdmin") == Some(&Value::Bool(true)),
             sleep_after: number("sleepAfter").unwrap_or(60.0),
             tune: self.store.get("tune").filter(|v| v.is_object()).cloned().unwrap_or_else(|| json!({})),
@@ -205,6 +207,7 @@ fn push_options(app: &AppHandle) {
         "whiskers": s.whiskers,
         "collar": s.collar,
         "privacy": s.privacy,
+        "play": s.play,
         "sleepAfter": if s.sleep_after > 0.0 { s.sleep_after } else { 1e9 },
         "tune": s.tune,
     });
@@ -527,12 +530,15 @@ fn start_drag(app: &AppHandle, panel: &WebviewWindow, pointer: (f64, f64)) {
         h.drag = Some(Drag { cursor: pointer, origin: (pos.x, pos.y), last: (pos.x, pos.y) });
     }
     let _ = panel.set_ignore_cursor_events(false);
+    // The cat is picked up: it hangs from its body until it is set down.
+    js(app, "cat.drag && cat.drag(true)");
 }
 
 fn stop_drag(app: &AppHandle) {
     let Some(drag) = host(app).drag.take() else { return };
     save_origin(app, drag.last);
     update_click_target(app);
+    js(app, "cat.drag && cat.drag(false)");
 }
 
 /// Only the cat itself takes clicks, and in click-through mode not even that: everything goes
@@ -728,6 +734,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     )?);
     items.push(toggle(app, "隐私模式（不显示键名）", "privacy", s.privacy)?);
     items.push(toggle(app, "鼠标穿透（点击直接落到下层窗口）", "clickThrough", s.click_through)?);
+    items.push(toggle(app, "逗猫模式（用光标逗它扑）", "play", s.play)?);
     items.push(action(app, "settings", "调节反应…")?);
     items.push(separator(app)?);
     if DEV {

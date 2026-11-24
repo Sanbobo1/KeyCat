@@ -98,10 +98,12 @@ function show() {
     if (it.type === 'toggle') input.checked = values[it.key];
     else { input.value = values[it.key]; input.show(values[it.key]); }
   }
-  // A switched-off group greys out its sliders.
-  for (const [toggle, group] of [['annoyOn', TUNING_SCHEMA[0].group], ['curiousOn', TUNING_SCHEMA[1].group]]) {
+  // A switched-off group greys out its sliders. The first switch of a group is the one in charge.
+  for (const g of TUNING_SCHEMA) {
+    const toggle = g.items.find(it => it.type === 'toggle');
+    if (!toggle) continue;
     for (const { it, row } of Object.values(inputs)) {
-      if (row.dataset.group === group && it.key !== toggle) row.classList.toggle('off', !values[toggle]);
+      if (row.dataset.group === g.group && it.type === 'range') row.classList.toggle('off', !values[toggle.key]);
     }
   }
 }

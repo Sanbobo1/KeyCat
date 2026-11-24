@@ -27,6 +27,13 @@ const TUNING_SCHEMA = [
     { key: 'curiousHold', label: '好奇持续多久', type: 'range', min: 0.5, max: 6, step: 0.5, def: 2, unit: '秒',
       hint: '鼠标停下后，还要盯这么久才放松。' },
   ] },
+  { group: '作息（久坐提醒、深夜打盹）', items: [
+    { key: 'restOn', label: '提醒休息', type: 'toggle', def: true,
+      hint: '连续用电脑满设定的时间后，猫会伸个懒腰提醒你歇一歇。' },
+    { key: 'restAfter', label: '用多久提醒', type: 'range', min: 15, max: 120, step: 5, def: 45, unit: '分钟' },
+    { key: 'nightDoze', label: '深夜更容易打盹', type: 'toggle', def: true,
+      hint: '23 点到 6 点，猫睡着只要平时四成的等待时间，也更爱犯困伸懒腰。' },
+  ] },
 ];
 const TUNING = {};
 for (const g of TUNING_SCHEMA) for (const it of g.items) TUNING[it.key] = it.def;
