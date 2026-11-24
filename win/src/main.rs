@@ -606,6 +606,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             ("橘猫", json!("orange")),
             ("蓝灰猫", json!("grey")),
             ("蓝白英短", json!("british")),
+            ("COCO冬瓜版", json!("coco")),
             ("白猫", json!("white")),
             ("三花猫", json!("calico")),
         ])?,
