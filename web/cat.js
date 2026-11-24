@@ -59,6 +59,10 @@
   // chest, neck and head shift sideways (x) and forward (z) more the higher up they are.
   // `squash` sinks the upper body into a loaf.
   const bend = { x: 0, z: 0, squash: 0 };
+  // How wide and how tall the body is drawn (1 for most coats; see `body` and `height` in COATS).
+  // Only the body itself changes: heights in the code below stay in the body's own units, and
+  // `bodyH` stretches them where they are placed in the world.
+  let bodyWidth = 1, bodyH = 1;
   const spineWeight = y => smooth(0.15, BODY_H, y) ** 1.6;
   const sink = y => smooth(0.2, BODY_H, y);
   const rest = [bodyGeo, rimGeo].map(g => Float32Array.from(g.attributes.position.array));
@@ -83,9 +87,9 @@
     const y = COLLAR_Y - 0.3 * K.clamp(headPivot.rotation.x + 0.1, 0, 0.6);
     // Lower down the chest is wider, so the band widens with it to stay on the fur.
     const s = radiusAt(y) / collarR;
-    collar.scale.set(s, 1, s);
+    collar.scale.set(s * bodyWidth, 1, s);
     const w = spineWeight(y), dw = (spineWeight(y + 0.01) - spineWeight(y - 0.01)) / 0.02;
-    collar.position.set(bend.x * w, y * (1 - bend.squash * sink(y)), bend.z * w);
+    collar.position.set(bend.x * w, y * bodyH * (1 - bend.squash * sink(y)), bend.z * w);
     // Only part of the spine's slope: the neck stays fairly upright under the level head, and a
     // steeply tipped band reads as a sash. The bell hangs plumb whatever the band does.
     const tx = K.clamp(Math.atan(bend.z * dw) * 0.5, -0.18, 0.18), tz = K.clamp(-Math.atan(bend.x * dw) * 0.5, -0.18, 0.18);
@@ -94,9 +98,9 @@
   }
   // A point given in the unbent body frame, moved with the spine and placed in the world.
   function attach(local, out) {
-    const w = spineWeight(local.y);
+    const y = local.y / bodyH, w = spineWeight(y);
     body.updateMatrixWorld();
-    return out.set(local.x + bend.x * w, local.y * (1 - bend.squash * sink(local.y)), local.z + bend.z * w)
+    return out.set(local.x + bend.x * w, local.y * (1 - bend.squash * sink(y)), local.z + bend.z * w)
       .applyMatrix4(body.matrixWorld);
   }
 
@@ -126,8 +130,11 @@
     parent.add(rim, paw);
     return { paw, rim };
   }
+  // Hind paws sit in a group of their own, so they move in with a slimmer body (see `body`).
+  const hindSet = new THREE.Group();
+  body.add(hindSet);
   const hind = [-1, 1].map(s => {
-    const { paw, rim } = makePaw(body, 0);
+    const { paw, rim } = makePaw(hindSet, 0);
     paw.scale.set(0.17, 0.1, 0.15);
     paw.position.set(s * 0.44, 0.06, 0.4);
     paw.rotation.y = s * 0.25;
@@ -198,24 +205,27 @@
   head.position.set(0, HEAD_Y, 0.04);
   headPivot.add(head);
   // Big round chibi head with full cheeks: widest at the cheeks below the eyes, softer over the brow.
-  // `full` is how far the cheeks bulge. R is the head most coats have; a coat may ask for another
-  // (see `head` in COATS).
+  // `full` is how far the cheeks bulge, and `top` how flat the crown is: 2 is the round head most
+  // coats have, a higher number keeps more width near the top, so ears can stand wide upon it.
+  // R is the head most coats have; a coat may ask for another (see `head` in COATS).
   const R = V(0.56, 0.47, 0.47);
   const CHEEK = 0.08;
   // How much wider the cheeks are than at CHEEK, so the outline grows with them.
   const cheekGain = full => (1 + 1.18 * full) / (1 + 1.18 * CHEEK);
-  const headShape = full => {
+  const headShape = (full, top) => {
     const geo = new THREE.SphereGeometry(1, 64, 44);
     const p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const y = p.getY(i);
       const cheek = 1 + full * Math.exp(-(((y + 0.38) / 0.4) ** 2)) - full * (y + 0.2);
-      p.setXYZ(i, p.getX(i) * cheek, y > 0 ? y * (1 - 0.06 * y) : y * 0.96, p.getZ(i));
+      // A superellipse is this much wider than a circle at this height.
+      const crown = (1 - Math.abs(y) ** top) ** (1 / top) / Math.sqrt(Math.max(1e-6, 1 - y * y));
+      p.setXYZ(i, p.getX(i) * cheek * crown, y > 0 ? y * (1 - 0.06 * y) : y * 0.96, p.getZ(i));
     }
     geo.computeVertexNormals();
     return geo;
   };
-  let headGeo = headShape(CHEEK);
+  let headGeo = headShape(CHEEK, 2);
   const headMesh = new THREE.Mesh(headGeo, fur.head);
   headMesh.scale.copy(R);
   const headRim = new THREE.Mesh(headGeo, rimMat);
@@ -238,26 +248,23 @@
   chinLine.scale.copy(R);
   head.add(headRim, chinLine, headMesh);
   // Fur, outline and chin line share one head shape, so they change together.
-  // Gives the head a coat's own shape: `cheek` (fuller cheeks), `head`, its half-width and
-  // half-height, and `earX`, which sets the ears further in (under 1) so their bases stay buried
-  // in a rounder head. The face was laid out for the default head, so everything on it moves
-  // with the change in x and y; depths stay, because a point keeps its place on the surface.
-  const form = { full: CHEEK, w: R.x, h: R.y, earX: 1 };
+  // Gives the head a coat's own shape: `cheek` (fuller cheeks), `top` (a flatter crown) and
+  // `head`, its half-width and half-height. The face was laid out for the default head, so `kx`
+  // and `ky` say how far it has spread in x and y (see setLook); depths stay, because a point
+  // keeps its place on the surface.
+  const form = { full: CHEEK, top: 2, w: R.x, h: R.y, kx: 1, ky: 1 };
   function setHead(c) {
-    const full = c.cheek || CHEEK, w = c.head ? c.head[0] : R.x, h = c.head ? c.head[1] : R.y, earX = c.earX || 1;
-    if (full === form.full && w === form.w && h === form.h && earX === form.earX) return;
-    Object.assign(form, { full, w, h, earX });
+    const full = c.cheek || CHEEK, top = c.top || 2, w = c.head ? c.head[0] : R.x, h = c.head ? c.head[1] : R.y;
+    if (full === form.full && top === form.top && w === form.w && h === form.h) return;
+    Object.assign(form, { full, top, w, h, kx: w / R.x, ky: h / R.y });
     headGeo.dispose();
-    headGeo = headShape(full);
+    headGeo = headShape(full, top);
     for (const m of [headMesh, headRim, chinLine]) m.geometry = headGeo;
     headMesh.scale.set(w, h, R.z);
     chinLine.scale.set(w, h, R.z);
     headRim.scale.set(w * cheekGain(full) + 0.024, h + 0.024, R.z + 0.02);
-    const kx = w / R.x, ky = h / R.y;
-    face.scale.set(kx, ky, 1);
-    whiskerSet.scale.set(kx, ky, 1);
-    for (const e of eyes) e.group.position.set(e.seat.x * kx, e.seat.y * ky, e.seat.z);
-    for (const e of ears) e.group.position.set(e.seat.x * kx * earX, e.seat.y * ky, e.seat.z);
+    face.scale.set(form.kx, form.ky, 1);
+    whiskerSet.scale.set(form.kx, form.ky, 1);
     // The chin keeps its place over the collar, so a taller head sits higher, not deeper.
     head.position.y = HEAD_Y + (h - R.y) * 0.96;
   }
@@ -346,6 +353,7 @@
   // the reference, since they would not show.
   const faceZ = (x, y) => R.z * Math.sqrt(Math.max(0, 1 - (x / R.x) ** 2 - (y / R.y) ** 2));
   const face = new THREE.Group();
+  let noseMesh, mouthMesh;
   {
     const NY = -0.15, nose = new THREE.Shape();
     nose.moveTo(-0.045, 0.012);
@@ -353,7 +361,7 @@
     nose.quadraticCurveTo(0.05, 0.004, 0.012, -0.024);
     nose.quadraticCurveTo(0, -0.032, -0.012, -0.024);
     nose.quadraticCurveTo(-0.05, 0.004, -0.045, 0.012);
-    const noseMesh = new THREE.Mesh(new THREE.ShapeGeometry(nose, 10), noseMat);
+    noseMesh = new THREE.Mesh(new THREE.ShapeGeometry(nose, 10), noseMat);
     noseMesh.position.set(0, NY, faceZ(0, NY) + 0.006);
     noseMesh.quaternion.setFromUnitVectors(V(0, 0, 1), V(0, NY / (R.y * R.y), faceZ(0, NY) / (R.z * R.z)).normalize());
     noseMesh.renderOrder = 12;
@@ -362,6 +370,7 @@
       const x = mix(-0.07, 0.07, t), y = NY - 0.035 - 0.022 * Math.sin(Math.abs(x) / 0.07 * Math.PI);
       return out.set(x, y, faceZ(x, y) + 0.006);
     }, () => 0.0055);
+    mouthMesh = mouth.mesh;
     face.add(noseMesh, mouth.mesh);
   }
   head.add(face);
@@ -386,7 +395,7 @@
       edge: t => mix(-0.03, 0.012, smooth(0.14, 0.42, t)) });
     const { paw, rim } = makePaw(K.scene, 20);
     // Shoulders sit inside the chest, so a hanging arm only shows below the middle of the body.
-    return { s, limb, paw, rim, shoulderLocal: V(s * 0.27, 0.94, 0.22), shoulder: V(0, 0, 0),
+    return { s, limb, paw, rim, shoulderLocal: V(s * 0.27, 0.94, 0.22), shoulder: V(0, 0, 0), seatX: s * 0.27, seatY: 0.94,
       c1: V(0, 0, 0), c2: V(0, 0, 0), hand: V(0, 0, 0) };
   });
 
@@ -481,13 +490,19 @@
       nose: '#f0a3a3', mouth: '#c99c94', inner: '#f6c3c3', innerAmt: 1, shade: 0.5 },
     calico: { fur: '#fbf8f1', ink: '#c2b8a8', lid: '#6e5a4e', rim: '#8b8172', arm: '#c9c1b2', paw: '#fbf8f1', toe: '#e0c9c2', whisker: '#b6ada0', eye: 'gold',
       patchA: '#e5964a', patchB: '#2b2522', calico: 1, nose: '#eea29a', mouth: '#b08a80', inner: '#f2bcb6', innerAmt: 1, shade: 0.5 },
-    // Blue-and-white British Shorthair, drawn from a photo of one. The breed's face is round:
-    // `head` makes it as tall on screen as it is wide (seen from above, a head looks shorter than
-    // it is). `mask` is the white face centre, chest and forelegs (fur.js); `cheek`, `ear` and
-    // `eyeSize` finish the look for this coat only (see setHead and setLook).
-    british: { fur: '#63666a', ink: '#3d4044', rim: '#f6f5f0', arm: '#a3a6aa', paw: '#fbf9f3', toe: '#d9d5cb', whisker: '#e2e1dc', eye: 'hazel',
-      light: '#fbf9f3', mask: 1, nose: '#e9a9b4', mouth: '#c99a9a', inner: '#e8c0c8', innerAmt: 1, shade: 0.5,
-      head: [0.56, 0.625], cheek: 0.05, ear: 1.0, earX: 0.9, eyeSize: 1.12 },
+    // Grey-and-white cat drawn from an illustration of one, with its proportions (see setHead and
+    // setLook). `head`, `cheek` and `top` give it a head that is broad with a flat crown, so its
+    // ears can stand wide upon it; `ear` (a number, or [width, height]) makes its ears tall and
+    // `earX` and `earY` set them high on the head, with `innerWide` filling them with pink.
+    // `eyeY` sets the eyes low in the face and `pupil` scales the pupil; `noseSize` and `mouth`
+    // shrink the nose to a dab and leave out the mouth. `height` draws the body taller, and
+    // `zoom` (with `zoomY` and `zoomX`) fits the whole cat on screen. `mask` is the white face
+    // centre, chest and forelegs, and `earTip` the white tuft on the left ear (fur.js).
+    british: { fur: '#63666a', ink: '#45454a', rim: '#45454a', arm: '#45454a', pawRim: '#45454a', paw: '#fdfdfa', toe: '#9a9a9a',
+      whisker: '#d8d8d4', eye: 'gold', light: '#fdfdfa', mask: 1, earTip: 1, innerWide: 1, inner: '#eea59e', innerAmt: 1,
+      nose: '#f0a49c', mouth: false, noseSize: [0.7, 0.6], shade: 0.5,
+      head: [0.595, 0.665], cheek: 0.05, top: 2.5, ear: [1.15, 1.3], earX: 0.8, earY: 1.22, eyeSize: 1.12, eyeRound: 1.45, eyeY: -0.3, pupil: [1, 1.37],
+      height: 1.42, zoom: 0.87, zoomY: 15, zoomX: 14 },
   };
   const EYES = { gold: '#dcb64a', green: '#93c255', blue: '#6eb2e6', amber: '#e59a32', copper: '#d9792f', hazel: '#c9b452' };
   // Catchlight dots per style: [x (outer side +), y, radius].
@@ -501,21 +516,52 @@
   // style: '2d' is flat colour like a sticker; '3d' adds soft volume shading.
   const look = { style: '2d', coat: 'black', pattern: 'auto', eye: 'auto', shine: 'classic', blush: false, whiskers: true, collar: 'none' };
   // Set by the coat; the eyes are scaled by it every frame in behavior.js.
-  const build = { eyeSize: 1 };
+  const build = { eyeSize: 1, pupil: [1, 1] };
   function setLook(o) {
     Object.assign(look, o);
     const c = COATS[look.coat] || COATS.black;
     setHead(c);
-    for (const e of ears) e.group.scale.set(c.ear || 1, (c.ear || 1) * 1.12, c.ear || 1);
+    const { kx, ky } = form;
+    // `earX` and `earY` scale the ears' distance from the head's centre (under 1 is further in),
+    // and `eyeY` moves the eyes up or down the face (1 is where they were laid out).
+    const [ex, ey] = Array.isArray(c.ear) ? c.ear : [c.ear || 1, c.ear || 1];
+    for (const e of ears) {
+      e.group.scale.set(ex, ey * 1.12, ex);
+      e.group.position.set(e.seat.x * kx * (c.earX || 1), e.seat.y * ky * (c.earY || 1), e.seat.z);
+    }
+    for (const e of eyes) e.group.position.set(e.seat.x * kx, e.seat.y * ky * (c.eyeY || 1), e.seat.z);
     build.eyeSize = c.eyeSize || 1;
+    // `pupil` scales the pupil's width and height.
+    build.pupil = c.pupil || [1, 1];
+    // The iris is a shade wider than tall, and the face tilts back from the camera, so on screen
+    // it is an ellipse lying on its side. `eyeRound` stretches it upwards to read as a circle.
+    for (const e of eyes) e.iris.scale.set(0.155, 0.14 * (c.eyeRound || 1), 1);
+    // `body` narrows the body and `height` draws it taller, and with it the neck the head sits
+    // on. The paws and shoulders follow, and the collar round it. The bell keeps its shape.
+    bodyWidth = c.body || 1;
+    bodyH = c.height || 1;
+    bodyMesh.scale.set(bodyWidth, bodyH, 0.82);
+    bodyRim.scale.set(1.045 * bodyWidth, 1.018 * bodyH, 0.86);
+    hindSet.scale.x = bodyWidth;
+    bell.scale.x = 1 / bodyWidth;
+    headPivot.position.y = (BODY_H - 0.12) * bodyH;
+    for (const a of arms) a.shoulderLocal.set(a.seatX * bodyWidth, a.seatY * bodyH, a.shoulderLocal.z);
+    // `zoom` (with `zoomY` and `zoomX`) fits the whole cat on screen; `noseSize` scales the nose,
+    // and `mouth: false` leaves the mouth out.
+    K.setZoom(c.zoom || 1, c.zoomY || 0, c.zoomX || 0);
+    noseMesh.scale.set(...(c.noseSize || [1, 1]), 1);
+    mouthMesh.visible = c.mouth !== false;
     const striped = c.tabby && (look.pattern === 'tabby' || (look.pattern === 'auto' && look.coat === 'orange'));
     const solid = look.style === '3d';
     K.setFur({ ...c, dark: c.tabby || c.fur, stripes: striped ? 1 : 0, shade: solid ? c.shade : 0 });
     K.mouseProp.setStyle(look.style);
     chinLine.visible = !solid;
     chinMat.uniforms.uColor.value.set(c.ink || c.arm);
-    rimMat.color.set(c.rim);
+    // A coat drawn without an outline round its silhouette sets `rim` to false.
+    rimMat.visible = c.rim !== false;
+    if (rimMat.visible) rimMat.color.set(c.rim);
     armRimMat.color.set(c.arm);
+    pawRimMat.color.set(c.pawRim || '#8f8f8a');
     pawMat.color.set(c.paw);
     toeMat.color.set(c.toe);
     whiskerMat.color.set(c.whisker);
@@ -543,7 +589,7 @@
   const NECK = headPivot.position.clone();
   function placeHead() {
     const w = spineWeight(NECK.y);
-    headPivot.position.set(NECK.x + bend.x * w, NECK.y * (1 - bend.squash), NECK.z + bend.z * w);
+    headPivot.position.set(NECK.x + bend.x * w, NECK.y * bodyH * (1 - bend.squash), NECK.z + bend.z * w);
   }
 
   K.cat = {

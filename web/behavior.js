@@ -418,8 +418,10 @@
         py = clamp((focus.y - es.y) / 170, -1, 1);
       }
       // Width grows with `dilate`; very wide, the slit's height shrinks a touch so it reads round.
-      e.pupil.scale.x += (0.044 * dilate - e.pupil.scale.x) * approach(10, dt);
-      e.pupil.scale.y += (0.11 - 0.012 * Math.max(0, dilate - 1.5) - e.pupil.scale.y) * approach(10, dt);
+      // A coat may scale the pupil's width and height (see `pupil` in COATS).
+      const [pw, ph] = cat.build.pupil;
+      e.pupil.scale.x += (0.044 * dilate * pw - e.pupil.scale.x) * approach(10, dt);
+      e.pupil.scale.y += ((0.11 - 0.012 * Math.max(0, dilate - 1.5)) * ph - e.pupil.scale.y) * approach(10, dt);
       // A slight inward, downward resting gaze gives the reference's soft cross-eyed look. The
       // pupil may only travel as far as keeps it inside the iris, so a wide one sits near the
       // centre; the limit applies to where it is now, not only where it is heading.
