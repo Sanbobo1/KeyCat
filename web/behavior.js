@@ -207,15 +207,26 @@
     sprite.userData.text = text;
     scene.add(sprite);
     zs.push({ sprite, t0: now(), hold, size, aspect, life });
+    return sprite;
   }
 
-  // Starts a reaction; `t0` may lie a little ahead. A trivial one never interrupts another.
+  // Takes a word off the screen before its time.
+  function dropWord(sprite) {
+    const i = zs.findIndex(z => z.sprite === sprite);
+    if (i < 0) return;
+    scene.remove(sprite);
+    zs.splice(i, 1);
+  }
+
+  // Starts a reaction; `t0` may lie a little ahead. A trivial one never interrupts another, and one
+  // that does takes the place of the last, word included: the cat says one thing at a time.
   function startReact(kind, t0, text) {
     if (S.react && kind === 'chatter') return S.react;
+    if (S.react && S.react.text) dropWord(S.react.text);
     const r = { kind, t0, dur: REACT_DUR[kind], side: S.lastPaw === 'L' ? 1 : -1 };
     S.react = r;
     S.busyUntil = Math.max(S.busyUntil, t0 + r.dur + 0.8);
-    if (text) floatText(text, headSide(V()), 1.2);
+    if (text) r.text = floatText(text, headSide(V()), 1.2);
     return r;
   }
 
@@ -225,10 +236,13 @@
   const WORDS = { coco: 'hearts', miao: 'meow', meow: 'meow' };
   const recent = (list, t, span, at = x => x) => list.filter(x => t - at(x) <= span);
   function eggs(code, t) {
-    const quiet = kind => t - (S.eggAt[kind] ?? -100) > TUNING.eggCool && !S.cross && !S.asleep && S.sleep < 0.3;
+    // A trick fires however the cat is, once its cool-down has passed: keys wake it, and every key
+    // typed while it is still drowsy riles it, so the first thing typed after a pause would
+    // otherwise never count.
+    const cooled = kind => t - (S.eggAt[kind] ?? -100) > TUNING.eggCool;
     const fire = kind => {
       S.eggAt[kind] = t;
-      startReact(kind, t, { meow: '喵', sigh: '唉…' }[kind]);
+      const r = startReact(kind, t, { meow: '喵', sigh: '唉…' }[kind]);
       const head = cat.head.getWorldPosition(V());
       if (kind === 'hearts') {
         // Not at once: they leave the top of the head one after another (see update).
@@ -239,7 +253,7 @@
         P.squash.kick(0.6);
       } else if (kind === 'puzzled') {
         // A big pink question mark hangs over the head for exactly as long as the cat is puzzled.
-        floatText('?', head.clone().add(V(0.05, 0.88, 0)), 3, 0.95, 'pink', 3.6);
+        r.text = floatText('?', head.clone().add(V(0.05, 0.88, 0)), 3, 0.95, 'pink', 3.6);
       }
     };
     // A run of question marks is broken by any other key.
@@ -253,27 +267,27 @@
       S.typed = recent(S.typed, t, 2.5, e => e[0]);
       S.typed.push([t, letter[1].toLowerCase()]);
       const kind = WORDS[S.typed.map(e => e[1]).join('').slice(-4)];
-      if (kind && quiet(kind)) fire(kind);
+      if (kind && cooled(kind)) fire(kind);
     } else if (code === 'Backspace') {
       // Deleting a lot at once: it has all gone wrong.
       S.backspaces = recent(S.backspaces, t, 3);
       S.backspaces.push(t);
-      if (S.backspaces.length >= 8 && quiet('sigh')) fire('sigh');
+      if (S.backspaces.length >= 8 && cooled('sigh')) fire('sigh');
     } else if (code === 'KeyZ' && S.ctrl) {
       // Undo, undo, undo: one paw goes to the forehead.
       S.undos = recent(S.undos, t, 3);
       S.undos.push(t);
-      if (S.undos.length >= 5 && quiet('facepalm')) fire('facepalm');
+      if (S.undos.length >= 5 && cooled('facepalm')) fire('facepalm');
     } else if (code === 'CapsLock') {
       // Shouted at: a jump.
       S.caps = recent(S.caps, t, 2);
       S.caps.push(t);
-      if (S.caps.length >= 4 && quiet('startled')) fire('startled');
+      if (S.caps.length >= 4 && cooled('startled')) fire('startled');
     } else if (code === 'Slash' && S.shift) {
       // Three question marks in a row: what on earth is going on?
       S.questions = recent(S.questions, t, 3);
       S.questions.push(t);
-      if (S.questions.length >= 3 && quiet('puzzled')) { S.questions = []; fire('puzzled'); }
+      if (S.questions.length >= 3 && cooled('puzzled')) { S.questions = []; fire('puzzled'); }
     }
   }
 
@@ -533,7 +547,9 @@
     P.curious.step(curiousNow ? 1 : 0, dt);
     // Something fascinating beats a grudge: curiosity eases the cross face while it lasts.
     const curious = clamp(P.curious.x, 0, 1);
-    P.cross.step(S.cross && !curiousNow ? 1 : 0, dt);
+    // A reaction takes the face for as long as it plays, as curiosity does.
+    const reacting = S.react && t >= S.react.t0;
+    P.cross.step(S.cross && !curiousNow && !reacting ? 1 : 0, dt);
     const cross = clamp(P.cross.x, 0, 1);
     if (S.cross || curiousNow) S.busyUntil = Math.max(S.busyUntil, t + 1);
 
