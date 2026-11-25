@@ -228,11 +228,12 @@ const K = {};
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(text, c.width / 2, y + h / 2 + 3);
     } else {
-      // A lone outlined glyph: white ('z'), or pink ('pink', the big question mark).
+      // A lone outlined glyph: white ('z'), pink ('pink', the question mark) or orange
+      // ('orange', the exclamation mark).
       g.font = 'bold 84px "Chalkboard SE", "Comic Sans MS", -apple-system, sans-serif';
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.lineWidth = 12; g.strokeStyle = '#1b1b1b'; g.strokeText(text, 64, 66);
-      g.fillStyle = style === 'pink' ? '#f58aa4' : '#fbfaf3'; g.fillText(text, 64, 66);
+      g.fillStyle = { pink: '#f58aa4', orange: '#f58a3c' }[style] || '#fbfaf3'; g.fillText(text, 64, 66);
     }
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 4;
