@@ -49,6 +49,8 @@
     heartUntil: -100, nextHeart: 0,
     // The demon form (typed 魔丸) lasts until `formUntil`; `form` eases 0 to 1 and back.
     formUntil: -100, form: 0,
+    // Which form: 'demon' or 'cry'. `nextTear` when the next tear falls.
+    formKind: null, nextTear: 0,
   };
   const effects = [];
   // How long each reaction lasts, and each idle fidget, in seconds.
@@ -243,11 +245,14 @@
   // Ghosts and bats circling the head while the demon form lasts; `formOn` while it shows.
   const floaters = [];
   let formOn = false;
-  function startForm(t) {
+  function startForm(t, which) {
+    S.formKind = which;
     S.formUntil = t + 5;
+    backdrop.style.background = which === 'cry' ? '#f7e6a2' : '#8f6db5';
+    S.nextTear = t;
     S.busyUntil = Math.max(S.busyUntil, t + 6.5);
     clearForm();
-    for (const kind of ['ghost', 'ghost', 'ghost', 'ghost', 'ghost', 'bat', 'bat', 'bat', 'bat']) {
+    for (const kind of which === 'demon' ? ['ghost', 'ghost', 'ghost', 'ghost', 'ghost', 'bat', 'bat', 'bat', 'bat'] : []) {
       const sprite = fxSprite(kind, 38);
       scene.add(sprite);
       floaters.push({ kind, sprite, side: floaters.length % 2 ? 1 : -1, a: Math.random() * 6.28, r: 1.0 + Math.random() * 0.5,
@@ -284,7 +289,8 @@
   // Secret words and habits on the keyboard. Only the last few letters are kept, and for a few
   // seconds; each trick then has a cool-down (a setting in the 调节 window), so a day's typing
   // does not become a variety show.
-  const WORDS = { coco: 'hearts', miao: 'meow', meow: 'meow', mowan: 'demon' };
+  // Words typed on the keyboard (with an input method, 魔丸 is typed mowan and 呜呜 wuwu).
+  const WORDS = { coco: 'hearts', miao: 'meow', meow: 'meow', mowan: 'demon', wuwu: 'cry' };
   const recent = (list, t, span, at = x => x) => list.filter(x => t - at(x) <= span);
   function eggs(code, t) {
     // A trick fires however the cat is, once its cool-down has passed: keys wake it, and every key
@@ -294,7 +300,7 @@
     const fire = kind => {
       S.eggAt[kind] = t;
       // The demon form is no reaction of a second or two: it has the cat for five.
-      if (kind === 'demon') { startForm(t); return; }
+      if (kind === 'demon' || kind === 'cry') { startForm(t, kind); return; }
       const r = startReact(kind, t, { meow: '喵', sigh: '唉…' }[kind]);
       const head = cat.head.getWorldPosition(V());
       if (kind === 'hearts') {
@@ -420,6 +426,10 @@
       cat.attach(arm.shoulderLocal, arm.shoulder);
       target = tmp.set(arm.shoulder.x + paw.side * 0.1, 0.1, 0.5);
       hz = 3;
+    } else if (S.formKind === 'cry' && S.form > 0.3) {
+      // Crying in a loaf: the paws are tucked away under the chest.
+      target = tmp.set(cat.home.x + paw.side * 0.3, 0.1, 0.3);
+      hz = 6;
     } else if (name === S.playPaw && S.chasing) {
       // Play mode: after the pointer, and down onto it for the pounce.
       target = tmp.copy(S.chase);
@@ -653,6 +663,7 @@
     const puzzled = rIs('puzzled');
     // An exclamation: the cat sits up and takes notice, ears straight up.
     const exclaim = rIs('exclaim');
+    const crying = S.formKind === 'cry' ? S.form : 0;
 
     // Body: the haunches stay planted; the spine bends towards whatever the busy paw reaches for.
     const striking = Object.values(paws).find(p => p.key && (p.down || t - p.t0 < 0.3));
@@ -686,6 +697,9 @@
     // Puzzled, the cat leans in for a closer look; an exclamation lifts it out of its loaf.
     hunch += 0.3 * puzzled - 0.06 * exclaim;
     squash -= 0.08 * exclaim;
+    // Crying, it drops into a loaf.
+    squash += 0.3 * crying;
+    hunch += 0.12 * crying;
     P.shift.step(shift, dt);
     P.hunch.step(hunch, dt);
     P.squash.step(squash, dt);
@@ -733,7 +747,7 @@
     // A stretch looks up, a sigh looks down, and grooming nods the head towards the paw.
     const nod = act && act.kind === 'groom' ? Math.sin(actU * Math.PI * 6) * 0.05 * actEnv : 0;
     P.pitch.step(ly * mix(0.12, 0.22, curious) * (1 - cross) - 0.28 + 0.5 * P.hunch.x + (mousing(t) ? 0.06 : 0) + 0.5 * S.sleep + 0.08 * cross
-      - 0.2 * stretch + 0.22 * rIs('sigh') + nod - 0.1 * exclaim, dt);
+      - 0.2 * stretch + 0.22 * rIs('sigh') + nod - 0.1 * exclaim + 0.15 * crying, dt);
     // Curious head tilt: towards a key being watched, or a fidget, or a pointer resting nearby.
     let roll = 0;
     if (striking) roll = clamp(P.shift.x * 1.2, -0.18, 0.18);
@@ -743,6 +757,8 @@
     roll += 0.2 * curious * (lx >= 0 ? -1 : 1);
     // Puzzled, the head cocks to one side.
     roll += 0.38 * puzzled * (r && r.kind === 'puzzled' ? r.side : 1);
+    // Crying, the head gives a little sob.
+    roll += 0.03 * Math.sin(t * 14) * crying;
     P.roll.step(roll - petSide * 0.12 * S.rub + 0.08 * S.sleep, dt);
     // Fast shivers go straight into the head, which the yaw spring would smooth away: the
     // chatter at a darting pointer, and the head shake at too much undoing.
@@ -760,7 +776,9 @@
     S.form += ((t < S.formUntil ? 1 : 0) - S.form) * approach(9, dt);
     const on = S.form > 0.003;
     if (on || formOn) {
-      cat.setForm(on ? S.form : 0);
+      const w = on ? S.form : 0;
+      cat.setForm(S.formKind === 'demon' ? w : 0);
+      cat.setCry(S.formKind === 'cry' ? w : 0, t);
       if (on) placeForm(S.form, t);
       else { backdrop.style.opacity = 0; clearForm(); cat.setLook({}); }
       formOn = on;
@@ -771,7 +789,7 @@
     // puts them up, a stretch or a fright or being carried lays them back.
     P.ears.step(0.1 * S.excite * (1 - cross) + 0.12 * curious - 0.22 * S.rub - 0.55 * cross
       + 0.45 * rIs('meow') - 0.25 * stretch - 0.6 * rIs('startled') - 0.2 * S.drag + 0.2 * puzzled + 0.6 * exclaim
-      - 0.85 * S.form, dt);
+      - 0.85 * (S.formKind === 'demon' ? S.form : 0) - 0.35 * crying, dt);
     for (const e of cat.ears) {
       const flick = act && act.kind === 'ear' && e.s === act.side ? Math.sin(actU * Math.PI * 3) * 0.3 * (1 - actU) : 0;
       e.group.rotation.z = -e.s * (e.tilt - P.ears.x) + flick;
@@ -796,8 +814,10 @@
     const dilate = Math.min(2.6, Math.max(mix(1 + 0.25 * S.excite, TUNING.pupilSize / 100, curious) * (1 - 0.5 * cross), 2.2 * S.drag, 1.8 * puzzled, 1.8 * exclaim, 2.6 * S.form));
     const wide = 1 + 0.15 * Math.max(rIs('startled'), S.drag, puzzled, exclaim);
     for (const e of cat.eyes) {
-      e.iris.visible = e.pupil.visible = e.shine.visible = !closed;
-      e.arc.visible = closed;
+      // Crying, the eye is squeezed shut by its own sticker.
+      const squeeze = crying > 0.5;
+      e.iris.visible = e.pupil.visible = e.shine.visible = !closed && !squeeze;
+      e.arc.visible = closed && !squeeze;
       // The whole eye, catchlights and closed-eye line included, is as big as its coat makes it.
       const size = cat.build.eyeSize * wide * (1 + 0.28 * S.form);
       e.group.scale.y = size * (1 - 0.9 * blink) * (1 - 0.42 * cross) * (1 + 0.1 * curious);
@@ -829,6 +849,13 @@
     }
     // Rubbing flushes the cheeks; the "blush" look keeps a faint flush all the time.
     cat.blushMat.opacity = Math.max(0.55 * S.rub, cat.look.blush ? 0.4 : 0) * (1 - cross);
+    // Tears fall from the outer corner of each eye.
+    if (crying > 0.5 && t > S.nextTear) {
+      S.nextTear = t + 0.22;
+      for (const e of cat.eyes) {
+        fx('tear', e.group.localToWorld(tmp2.set(e.s * 0.15, -0.02, 0.01)), 0.1, 0.6, V(e.s * 0.12, -0.9, 0.1));
+      }
+    }
 
     // The tail sways faster when the cat is worked up and twitches as irritation builds; a fidget
     // gives it a flick.
@@ -872,10 +899,10 @@
       // A rising heart wobbles as a bubble does.
       if (fx.kind === 'heart') fx.sprite.position.x += Math.sin(age * 5 + fx.from.x * 9) * 0.05;
       // Bursts and stars pop out at once, hearts swell, dust grows as it thins out.
-      const pop = fx.kind === 'bang' || fx.kind === 'star' ? 0.5 + 0.7 * smooth(0, 0.3, u) : fx.kind === 'heart' ? 0.6 + 0.5 * smooth(0, 0.25, u) : 0.6 + 0.9 * u;
+      const pop = fx.kind === 'bang' || fx.kind === 'star' ? 0.5 + 0.7 * smooth(0, 0.3, u) : fx.kind === 'heart' || fx.kind === 'tear' ? 0.6 + 0.5 * smooth(0, 0.25, u) : 0.6 + 0.9 * u;
       const s = fx.size * pop;
       fx.sprite.scale.set(s, s, 1);
-      fx.sprite.material.opacity = fx.kind === 'bang' || fx.kind === 'star' ? 1 - smooth(0.5, 1, u) : fx.kind === 'heart' ? 0.95 * (1 - smooth(0.6, 1, u)) : 0.9 * (1 - u);
+      fx.sprite.material.opacity = fx.kind === 'bang' || fx.kind === 'star' ? 1 - smooth(0.5, 1, u) : fx.kind === 'heart' || fx.kind === 'tear' ? 0.95 * (1 - smooth(0.6, 1, u)) : 0.9 * (1 - u);
     }
     for (const arm of cat.arms) cat.updateArm(arm, arm.s < 0 ? paws.L.pos : paws.R.pos);
 
@@ -1023,7 +1050,7 @@
       S.shift = false; S.ctrl = false; S.typed = []; S.backspaces = []; S.undos = []; S.caps = []; S.eggAt = {};
       S.chasing = false; S.playSide = 0; S.pounceAt = -100; S.pounceUntil = -100; S.pounceDone = false;
       S.curiousWas = false; S.chatterAt = -100; S.heartUntil = -100;
-      S.form = 0; S.formUntil = -100; formOn = false; clearForm(); backdrop.style.opacity = 0; cat.setForm(0); cat.setLook({});
+      S.form = 0; S.formUntil = -100; S.formKind = null; formOn = false; clearForm(); backdrop.style.opacity = 0; cat.setForm(0); cat.setCry(0, 0); cat.setLook({});
       P.cross.set(0); P.desk.set(0); P.curious.set(0);
       for (const fx of [...effects, ...zs, ...popups]) scene.remove(fx.sprite);
       effects.length = 0;
@@ -1049,7 +1076,8 @@
     window.cat.hour = h => { S.hourSet = h; S.hourAt = -100; };
     window.cat.actNow = kind => { S.act = { kind, t0: now(), dur: ACT_DUR[kind], side: Math.random() < 0.5 ? -1 : 1 }; S.busyUntil = Math.max(S.busyUntil, now() + ACT_DUR[kind] + 0.8); };
     window.cat.greet = () => { S.greetAt = 0; options({}); };
-    window.cat.formNow = () => startForm(now());
+    window.cat.formNow = () => startForm(now(), 'demon');
+    window.cat.cryNow = () => startForm(now(), 'cry');
     // What is going on, for checking a pose without reading pixels.
     window.cat.debug = () => ({
       t: now(), react: S.react && S.react.kind, act: S.act && S.act.kind, chasing: S.chasing, playPaw: S.playPaw,
