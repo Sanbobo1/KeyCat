@@ -310,42 +310,6 @@
     return { group: g, mesh: e, rim: r, s, tilt: 0.2, seat: g.position.clone() };
   });
 
-  // Stickers of the crying form (typed 呜呜), drawn once: an eye squeezed shut (drawn for the
-  // eye on screen left and mirrored for the other) and the wide-open mouth.
-  const sticker = (w, h, draw) => {
-    const c = document.createElement('canvas');
-    c.width = w;
-    c.height = h;
-    const g = c.getContext('2d');
-    g.lineJoin = g.lineCap = 'round';
-    draw(g);
-    const tex = new THREE.CanvasTexture(c);
-    tex.anisotropy = 4;
-    return tex;
-  };
-  const squeezeTex = sticker(256, 128, g => {
-    // A thick lid sloping down towards the nose, with a crease above it.
-    const lid = () => { g.beginPath(); g.moveTo(26, 40); g.quadraticCurveTo(104, 34, 224, 82); };
-    const crease = () => { g.beginPath(); g.moveTo(66, 16); g.quadraticCurveTo(134, 10, 214, 42); };
-    g.strokeStyle = '#1b1b1b'; g.lineWidth = 48; lid(); g.stroke();
-    g.lineWidth = 10; crease(); g.stroke();
-    g.strokeStyle = '#f0b429'; g.lineWidth = 34; lid(); g.stroke();
-    g.strokeStyle = '#e08a2a'; g.lineWidth = 5; crease(); g.stroke();
-  });
-  const openMouthTex = sticker(256, 256, g => {
-    // The throat above, the tongue below, a fang at each corner.
-    const mouth = () => { g.beginPath(); g.moveTo(34, 62); g.quadraticCurveTo(128, 44, 222, 62); g.lineTo(212, 172); g.quadraticCurveTo(128, 224, 44, 172); g.closePath(); };
-    const tongue = () => { g.beginPath(); g.moveTo(40, 122); g.quadraticCurveTo(92, 100, 128, 136); g.quadraticCurveTo(164, 100, 216, 122); g.lineTo(212, 172); g.quadraticCurveTo(128, 224, 44, 172); g.closePath(); };
-    const fang = (x, y, down) => {
-      g.beginPath(); g.moveTo(x - 11, y); g.lineTo(x + 11, y); g.lineTo(x, y + (down ? 32 : -32)); g.closePath();
-      g.fillStyle = '#fbfaf3'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#8a8a8a'; g.stroke();
-    };
-    mouth(); g.fillStyle = '#9e1f2b'; g.fill();
-    tongue(); g.fillStyle = '#c8565c'; g.fill();
-    fang(80, 66, true); fang(176, 66, true); fang(80, 192, false); fang(176, 192, false);
-    mouth(); g.lineWidth = 9; g.strokeStyle = '#8a8a8a'; g.stroke();
-  });
-
   // Eyes sit on the face surface and face along its normal.
   const disc = new THREE.CircleGeometry(1, 36);
   const eyes = [-1, 1].map(s => {
@@ -376,20 +340,13 @@
       t => 0.011 + 0.006 * Math.sin(t * Math.PI));
     arc.mesh.visible = false;
     g.add(iris, pupil, shine, arc.mesh);
-    // The eye squeezed shut in a cry. The other eye's is this one mirrored.
-    const squeeze = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.15), new THREE.MeshBasicMaterial({ map: squeezeTex, transparent: true, depthTest: false }));
-    squeeze.scale.x = -s;
-    squeeze.position.set(0, 0.01, 0.006);
-    squeeze.renderOrder = 14;
-    squeeze.visible = false;
-    g.add(squeeze);
     const blush = new THREE.Mesh(disc, blushMat);
     blush.scale.set(0.085, 0.048, 1);
     blush.position.set(s * 0.06, -0.15, 0.001);
     blush.renderOrder = 10;
     g.add(blush);
     head.add(g);
-    return { s, group: g, iris, pupil, shine, arc: arc.mesh, squeeze, seat: g.position.clone() };
+    return { s, group: g, iris, pupil, shine, arc: arc.mesh, seat: g.position.clone() };
   });
 
   // Whiskers: three thin strands per side, from the cheek out past the face.
@@ -412,7 +369,7 @@
   // the reference, since they would not show.
   const faceZ = (x, y) => R.z * Math.sqrt(Math.max(0, 1 - (x / R.x) ** 2 - (y / R.y) ** 2));
   const face = new THREE.Group();
-  let noseMesh, mouthMesh, openMouth;
+  let noseMesh, mouthMesh;
   {
     const NY = -0.15, nose = new THREE.Shape();
     nose.moveTo(-0.045, 0.012);
@@ -431,19 +388,6 @@
     }, () => 0.0055);
     mouthMesh = mouth.mesh;
     face.add(noseMesh, mouth.mesh);
-    // The open mouth of a cry hangs from its top edge just under the nose, so growing it
-    // downwards is the mouth opening. It faces straight out from the head, in front of the
-    // face: the lower face slopes away from the camera, and a mouth lying on that slope is
-    // seen half as tall. It covers most of the face below the eyes, as the drawing has it.
-    const sheet = new THREE.PlaneGeometry(1, 1);
-    sheet.translate(0, -0.5, 0);
-    openMouth = new THREE.Mesh(sheet, new THREE.MeshBasicMaterial({ map: openMouthTex, transparent: true, depthTest: false }));
-    openMouth.position.set(0, NY - 0.045, faceZ(0, 0) + 0.02);
-    openMouth.renderOrder = 13;
-    openMouth.visible = false;
-    // On the head, not with the nose: coats drawn without a nose hide that group.
-    openMouth.userData.top = NY - 0.045;
-    head.add(openMouth);
   }
   head.add(face);
 
@@ -636,19 +580,6 @@
     placeArrowTip();
   }
 
-  // The crying form (typed 呜呜): the mouth opens and the eyes squeeze shut. The loaf, the ears,
-  // the tears and the tucked-in paws are the behaviour's.
-  function setCry(w, time) {
-    openMouth.visible = w > 0.01;
-    const { kx, ky } = form;
-    // Half as wide as the head, and from under the nose down to the chin, whatever the head's
-    // size; the drawing fills about three quarters of the sheet. It quavers as the cat wails.
-    const height = (0.45 * ky - 0.165) / 0.7;
-    openMouth.position.y = openMouth.userData.top * ky;
-    openMouth.scale.set(Math.max(0.001, 0.8 * kx * w), Math.max(0.001, height * w * (1 + 0.05 * Math.sin(time * 24))), 1);
-    for (const e of eyes) e.squeeze.visible = w > 0.5;
-  }
-
   // Coats, drawn from real cats: each has its own nose, inner ear, muzzle and bib colours, and the
   // `eye` it most often has. `tabby` lists the stripe colour for coats that can be striped, and
   // `striped` ones wear the stripes unless the pattern is set to solid. `point` and `points` give
@@ -811,7 +742,7 @@
     dragMeshes: [bodyMesh, tail.body, ...arms.flatMap(a => [a.limb.body, a.paw]), ...hind],
     // The same without the arms, whose paws may be out chasing the pointer (see play mode).
     bodyDragMeshes: [bodyMesh, tail.body, ...hind],
-    updateArm, updateTail, setLook, setForm, setCry, look, build,
+    updateArm, updateTail, setLook, setForm, look, build,
   };
   setLook({});
 })();

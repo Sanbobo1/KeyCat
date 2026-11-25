@@ -243,7 +243,7 @@ const K = {};
   };
 
   // Small sticker effects: 'anger' (manga cross-vein mark), 'bang' (impact burst), 'star', 'heart',
-  // 'dust' (puff), and for the demon form 'ghost' and 'bat'; 'tear' for the crying form.
+  // 'dust' (puff), and for the demon form 'ghost' and 'bat'.
   K.fxTexture = kind => {
     const key = 'fx:' + kind;
     if (labelCache.has(key)) return labelCache.get(key).tex;
@@ -330,16 +330,6 @@ const K = {};
       g.fillStyle = '#fbfaf3'; g.strokeStyle = '#fbfaf3'; g.lineWidth = 10; g.lineJoin = 'round';
       bat(); g.fill(); g.stroke();
       g.fillStyle = '#c8232a'; bat(); g.fill();
-    } else if (kind === 'tear') {
-      // A drop of water for the crying form, with a glint.
-      g.beginPath();
-      g.moveTo(64, 14);
-      g.bezierCurveTo(86, 44, 96, 60, 96, 80);
-      g.arc(64, 80, 32, 0, Math.PI);
-      g.closePath();
-      g.fillStyle = '#a5d4f2'; g.fill();
-      g.strokeStyle = '#1b1b1b'; g.lineWidth = 5; g.stroke();
-      g.beginPath(); g.ellipse(54, 84, 6, 10, 0, 0, Math.PI * 2); g.fillStyle = '#e6f4fd'; g.fill();
     } else {
       g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2);
       g.fillStyle = '#f4f1e6'; g.fill();
