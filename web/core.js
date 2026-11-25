@@ -243,7 +243,7 @@ const K = {};
   };
 
   // Small sticker effects: 'anger' (manga cross-vein mark), 'bang' (impact burst), 'star', 'heart',
-  // 'dust' (puff).
+  // 'dust' (puff), and for the demon form 'ghost' and 'bat'.
   K.fxTexture = kind => {
     const key = 'fx:' + kind;
     if (labelCache.has(key)) return labelCache.get(key).tex;
@@ -297,6 +297,39 @@ const K = {};
       g.fillStyle = '#fbfaf3'; g.strokeStyle = '#fbfaf3'; g.lineWidth = 16; g.lineJoin = 'round';
       heart(0.92); g.fill(); g.stroke();
       g.fillStyle = '#ef7f92'; heart(0.84); g.fill();
+    } else if (kind === 'ghost') {
+      // A little white ghost: a round head, a hem that waves, two eyes.
+      const ghost = () => {
+        g.beginPath();
+        g.moveTo(22, 104); g.lineTo(22, 58);
+        g.arc(64, 58, 42, Math.PI, 0);
+        g.lineTo(106, 104);
+        for (let x = 106; x > 22; x -= 14) g.quadraticCurveTo(x - 7, 92, x - 14, 104);
+        g.closePath();
+      };
+      g.fillStyle = '#fbfaf3'; g.strokeStyle = '#1b1b1b'; g.lineWidth = 5; g.lineJoin = 'round';
+      ghost(); g.fill(); g.stroke();
+      g.fillStyle = '#1b1b1b';
+      for (const x of [50, 78]) { g.beginPath(); g.ellipse(x, 60, 5.5, 8.5, 0, 0, Math.PI * 2); g.fill(); }
+    } else if (kind === 'bat') {
+      // A red bat with its wings out, white edge like the other stickers.
+      const bat = () => {
+        g.beginPath();
+        g.moveTo(6, 46);
+        g.bezierCurveTo(22, 30, 36, 30, 50, 40);
+        g.lineTo(56, 24); g.lineTo(63, 35); g.lineTo(65, 35); g.lineTo(72, 24); g.lineTo(78, 40);
+        g.bezierCurveTo(92, 30, 106, 30, 122, 46);
+        g.bezierCurveTo(108, 52, 104, 60, 100, 70);
+        g.bezierCurveTo(92, 62, 86, 64, 82, 72);
+        g.bezierCurveTo(76, 78, 72, 84, 64, 86);
+        g.bezierCurveTo(56, 84, 52, 78, 46, 72);
+        g.bezierCurveTo(42, 64, 36, 62, 28, 70);
+        g.bezierCurveTo(24, 60, 20, 52, 6, 46);
+        g.closePath();
+      };
+      g.fillStyle = '#fbfaf3'; g.strokeStyle = '#fbfaf3'; g.lineWidth = 10; g.lineJoin = 'round';
+      bat(); g.fill(); g.stroke();
+      g.fillStyle = '#c8232a'; bat(); g.fill();
     } else {
       g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2);
       g.fillStyle = '#f4f1e6'; g.fill();

@@ -24,6 +24,8 @@
     uMask: { value: 0 },                // grey-and-white: white face centre, chest and forelegs
     uEarTip: { value: 0 },              // white tuft on the tip of the left ear
     uInnerAmt: { value: 0 },
+    uTailInk: { value: C('#151515') }, // the tail on its own: the demon form paints it red
+    uTailAmt: { value: 0 },
     uInnerWide: { value: 0 },            // inner ear fills most of the ear
     uShade: { value: 0 },
   };
@@ -50,8 +52,8 @@
     }`;
 
   const fragment = `
-    uniform vec3 uFur, uLight, uDark, uPatchA, uPatchB, uPoint, uInner;
-    uniform float uStripes, uMuzzle, uBib, uCalico, uTuxedo, uPoints, uCurl, uMask, uEarTip, uInnerAmt, uInnerWide, uShade;
+    uniform vec3 uFur, uLight, uDark, uPatchA, uPatchB, uPoint, uInner, uTailInk;
+    uniform float uStripes, uMuzzle, uBib, uCalico, uTuxedo, uPoints, uCurl, uMask, uEarTip, uTailAmt, uInnerAmt, uInnerWide, uShade;
     varying vec3 vRest;
     varying vec3 vNormal;
     varying float vAlong;
@@ -178,6 +180,9 @@
       col = mix(col, uDark, max(dark, curl * uCurl));
       col = mix(col, uLight, light);
       col = mix(col, uInner, inner * uInnerAmt);
+      #ifdef TAIL
+        col = mix(col, uTailInk, uTailAmt);
+      #endif
       // Soft volume: lit from the top left, a touch darker towards the silhouette and underneath.
       vec3 n = normalize(vNormal);
       // Only the sides darken: a dark top edge would draw a seam where the ears meet the head.
@@ -207,8 +212,11 @@
   };
 
   // Writes a coat: colours plus how strongly each marking shows (0 hides it).
+  // Paints the tail on its own: how far (0 to 1) in the given colour.
+  K.tailPaint = (color, amount) => { U.uTailInk.value.set(color); U.uTailAmt.value = amount; };
+
   K.setFur = f => {
-    for (const k of ['fur', 'light', 'dark', 'patchA', 'patchB', 'point', 'inner']) U['u' + k[0].toUpperCase() + k.slice(1)].value.set(f[k] || f.fur);
-    for (const k of ['stripes', 'muzzle', 'bib', 'calico', 'tuxedo', 'points', 'curl', 'mask', 'earTip', 'innerAmt', 'innerWide', 'shade']) U['u' + k[0].toUpperCase() + k.slice(1)].value = f[k] || 0;
+    for (const k of ['fur', 'light', 'dark', 'patchA', 'patchB', 'point', 'inner', 'tailInk']) U['u' + k[0].toUpperCase() + k.slice(1)].value.set(f[k] || f.fur);
+    for (const k of ['stripes', 'muzzle', 'bib', 'calico', 'tuxedo', 'points', 'curl', 'mask', 'earTip', 'tailAmt', 'innerAmt', 'innerWide', 'shade']) U['u' + k[0].toUpperCase() + k.slice(1)].value = f[k] || 0;
   };
 })();

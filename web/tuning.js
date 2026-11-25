@@ -36,7 +36,7 @@ const TUNING_SCHEMA = [
   ] },
   { group: '彩蛋和磨牙的冷却', items: [
     { key: 'eggCool', label: '打字彩蛋隔多久能再触发', type: 'range', min: 0, max: 120, step: 5, def: 20, unit: '秒',
-      hint: '同一种打字彩蛋（爱心、喵、叹气、扶额、吓一跳、问号、感叹号）出现过一次后，要隔这么久才会再出现。' },
+      hint: '同一种打字彩蛋（爱心、喵、叹气、扶额、吓一跳、问号、感叹号、恶魔形态）出现过一次后，要隔这么久才会再出现。' },
     { key: 'chatterCool', label: '磨牙隔多久能再触发', type: 'range', min: 0, max: 60, step: 1, def: 6, unit: '秒',
       hint: '光标快速掠过时猫会磨牙，两次之间至少隔这么久。' },
   ] },

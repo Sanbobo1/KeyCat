@@ -400,8 +400,98 @@
   const tailThump = [V(0.42, 0.36, -0.25), V(0.7, 0.16, -0.24), V(0.94, 0.07, -0.14), V(1.12, 0.05, -0.02),
     V(1.28, 0.05, 0.06), V(1.42, 0.06, 0.1)];
   const tailCurve = new THREE.CatmullRomCurve3(tailPts.map(q => q.clone()), false, 'catmullrom', 0.5);
-  const tail = K.limb(K.scene, { segments: 28, radial: 14, fill: fur.tail, outline: rimMat, edge: 0.022, capStart: false });
+  // The tail's outline is a material of its own: the demon form turns it white while the rest
+  // of the outline stays as the coat has it.
+  const tailRim = rimMat.clone();
+  tailRim.depthWrite = false;
+  const tail = K.limb(K.scene, { segments: 28, radial: 14, fill: fur.tail, outline: tailRim, edge: 0.022, capStart: false });
   const attached = V(0, 0, 0), loose = V(0, 0, 0), tmpTail = V(0, 0, 0);
+
+  // The demon form, which the behaviour starts when 魔丸 is typed: horns, the tail painted red
+  // with an arrow on its tip, and a box to sit in. `setForm` says how far in it is (0 to 1)
+  // and everything eases with it; the behaviour adds the flattened ears, the wide dark eyes,
+  // a purple backdrop and the things that fly round.
+  const DEMON_RED = new THREE.Color('#c8232a'), DEMON_EDGE = new THREE.Color('#fbfaf3');
+  const hornGeo = new THREE.ConeGeometry(0.105, 0.4, 14);
+  const hornRimGeo = hornGeo.clone().scale(1.2, 1.07, 1.2);
+  const hornFill = new THREE.MeshBasicMaterial({ color: DEMON_RED });
+  const hornEdge = K.back('#fbfaf3');
+  hornEdge.depthWrite = false;
+  const horns = [-1, 1].map(s => {
+    const g = new THREE.Group();
+    const rim = new THREE.Mesh(hornRimGeo, hornEdge), fill = new THREE.Mesh(hornGeo, hornFill);
+    rim.renderOrder = 3;
+    fill.renderOrder = 4;
+    g.add(rim, fill);
+    g.rotation.z = -s * 0.14;
+    g.visible = false;
+    head.add(g);
+    return { g, s };
+  });
+  // An arrowhead that rides the tip of the tail, turned the way the tail ends on screen.
+  const arrowShape = new THREE.Shape();
+  arrowShape.moveTo(0, 0.2);
+  arrowShape.lineTo(0.19, -0.07);
+  arrowShape.lineTo(0, -0.015);
+  arrowShape.lineTo(-0.19, -0.07);
+  arrowShape.closePath();
+  const arrowGeo = new THREE.ShapeGeometry(arrowShape);
+  const arrowRim = new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({ color: DEMON_EDGE, depthTest: false }));
+  const arrowFill = new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({ color: DEMON_RED, depthTest: false }));
+  arrowRim.renderOrder = 28;
+  arrowFill.renderOrder = 29;
+  arrowRim.visible = arrowFill.visible = false;
+  K.scene.add(arrowRim, arrowFill);
+  // A cardboard box in front of the cat: its lower body and most of the keyboard are behind
+  // it. The group's origin is on the desk, so growing it in height is the box rising up.
+  const box = new THREE.Group();
+  {
+    const ink = new THREE.LineBasicMaterial({ color: '#1b1b1b' });
+    const panel = (w, h, d, x, y, z, color) => {
+      const geo = new THREE.BoxGeometry(w, h, d);
+      const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color }));
+      mesh.position.set(x, y, z);
+      mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), ink));
+      box.add(mesh);
+    };
+    const W = 1.9, H = 0.78, T = 0.06, Z = 1.02;
+    panel(W, H, T, 0, H / 2, Z, '#c9963f');
+    panel(T, H, 0.95, -(W - T) / 2, H / 2, Z - 0.475, '#b8862f');
+    panel(T, H, 0.95, (W - T) / 2, H / 2, Z - 0.475, '#b8862f');
+    box.visible = false;
+    K.scene.add(box);
+  }
+  const tip = V(), beforeTip = V(), seen = V(), seen2 = V();
+  function setForm(w) {
+    const { kx, ky } = form;
+    for (const { g, s } of horns) {
+      g.visible = w > 0.01;
+      g.scale.setScalar(Math.max(0.001, w));
+      g.position.set(s * 0.25 * kx, 0.5 * ky, 0.03);
+    }
+    arrowRim.visible = arrowFill.visible = w > 0.01;
+    arrowFill.scale.setScalar(Math.max(0.001, 0.9 * w));
+    arrowRim.scale.setScalar(Math.max(0.001, 0.9 * w * 1.35));
+    box.visible = w > 0.01;
+    box.scale.set(1, Math.max(0.001, w), 1);
+    K.tailPaint(DEMON_RED, w);
+    if (rimMat.visible) tailRim.color.copy(rimMat.color).lerp(DEMON_EDGE, w);
+  }
+  function placeArrowTip() {
+    if (!arrowFill.visible) return;
+    tailCurve.getPoint(1, tip);
+    tailCurve.getPoint(0.9, beforeTip);
+    // Which way the tail ends, as the camera sees it.
+    K.camera.updateMatrixWorld();
+    seen.copy(tip).applyMatrix4(K.camera.matrixWorldInverse);
+    seen2.copy(beforeTip).applyMatrix4(K.camera.matrixWorldInverse);
+    const angle = Math.atan2(seen.y - seen2.y, seen.x - seen2.x) - Math.PI / 2;
+    for (const m of [arrowRim, arrowFill]) {
+      m.position.copy(tip);
+      m.quaternion.copy(K.camera.quaternion);
+      m.rotateZ(angle);
+    }
+  }
 
   // Arms live in world space so the paws can reach keys and the mouse wherever the body leans.
   const arms = [-1, 1].map(s => {
@@ -487,6 +577,7 @@
       for (let i = 1; i < pts.length; i++) pts[i].lerp(reachPath[i - 1], reach * (i === 1 ? 0.6 : 1));
     }
     tail.update((t, out) => tailCurve.getPoint(t, out), t => mix(0.085, 0.068, t) + 0.014 * K.smooth(0.8, 1, t));
+    placeArrowTip();
   }
 
   // Coats, drawn from real cats: each has its own nose, inner ear, muzzle and bib colours, and the
@@ -608,6 +699,8 @@
     // A coat drawn without an outline round its silhouette sets `rim` to false.
     rimMat.visible = c.rim !== false;
     if (rimMat.visible) rimMat.color.set(c.rim);
+    tailRim.visible = rimMat.visible;
+    if (rimMat.visible) tailRim.color.copy(rimMat.color);
     armRimMat.color.set(c.arm);
     pawRimMat.color.set(c.pawRim || '#8f8f8a');
     pawMat.color.set(c.paw);
@@ -649,7 +742,7 @@
     dragMeshes: [bodyMesh, tail.body, ...arms.flatMap(a => [a.limb.body, a.paw]), ...hind],
     // The same without the arms, whose paws may be out chasing the pointer (see play mode).
     bodyDragMeshes: [bodyMesh, tail.body, ...hind],
-    updateArm, updateTail, setLook, look, build,
+    updateArm, updateTail, setLook, setForm, look, build,
   };
   setLook({});
 })();
