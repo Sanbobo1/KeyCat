@@ -17,6 +17,9 @@ pub fn code(scan: u32, extended: bool, vk: u32) -> Option<&'static str> {
             0x1c => "NumpadEnter",
             0x1d => "ControlRight",
             0x35 => "NumpadDivide",
+            // Not a standard E0 key, but some keyboards (and the software in front of them) send
+            // the right Shift this way; left alone it would be dropped.
+            0x36 => "ShiftRight",
             0x37 => "PrintScreen",
             0x38 => "AltRight",
             0x47 => "Home",
